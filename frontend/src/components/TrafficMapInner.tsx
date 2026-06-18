@@ -1,6 +1,6 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect } from "react";
@@ -15,10 +15,11 @@ const icon = L.icon({
 });
 
 export default function TrafficMapInner({ events }: { events: any[] }) {
-  // The Mappls MapMyIndia REST API is returning a 401 Unauthorized for direct tile access.
-  // This typically happens because Mappls requires OAuth Bearer tokens for modern SDKs.
-  // For this beautiful dark dashboard, we will default to the open CartoDB Dark Matter tiles.
-  const tileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+  const mapKey = process.env.NEXT_PUBLIC_MAPMYINDIA_API_KEY;
+  const tileUrl = mapKey && mapKey !== "dummy" 
+    ? `https://apis.mapmyindia.com/advancedmaps/v1/${mapKey}/retina_map/{z}/{x}/{y}.png`
+    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+
 
   return (
     <div className="w-full h-full rounded-xl overflow-hidden glass-card border-[var(--color-card-border)] relative z-10">
@@ -54,6 +55,35 @@ export default function TrafficMapInner({ events }: { events: any[] }) {
                 </div>
               </Popup>
             </Marker>
+          );
+        })}
+
+        {/* Generate Simulated Traffic Shockwave Polylines (Red/Orange) */}
+        {events.map((event, idx) => {
+          let lat = 12.9716;
+          let lon = 77.5946;
+          if (event.location && event.location.startsWith("POINT(")) {
+            const coords = event.location.replace("POINT(", "").replace(")", "").split(" ");
+            lon = parseFloat(coords[0]);
+            lat = parseFloat(coords[1]);
+          }
+
+          const sev = event.predicted_severity || 5.0;
+          const lineColor = sev > 7 ? "#ef4444" : "#f97316"; // Red or Orange
+          
+          // Create a fake traffic line extending from the event
+          const trafficLine: [number, number][] = [
+            [lat, lon],
+            [lat + (Math.random() - 0.5) * 0.02, lon + (Math.random() - 0.5) * 0.02],
+            [lat + (Math.random() - 0.5) * 0.03, lon + (Math.random() - 0.5) * 0.03]
+          ];
+
+          return (
+            <Polyline 
+              key={`line-${event.id || idx}`} 
+              positions={trafficLine} 
+              pathOptions={{ color: lineColor, weight: sev > 7 ? 5 : 3, opacity: 0.8 }} 
+            />
           );
         })}
       </MapContainer>

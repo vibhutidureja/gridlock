@@ -19,6 +19,7 @@ class EventUpdate(BaseModel):
 
 class EventResponse(EventCreate):
     id: uuid.UUID
+    location: Optional[str] = None
     predicted_severity: Optional[float] = None
     predicted_resolution_time_mins: Optional[int] = None
 
