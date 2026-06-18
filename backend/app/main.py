@@ -7,8 +7,21 @@ from app.optimization import optimizer
 from app.ai_orchestrator import ai_orchestrator
 import uuid
 
+from app.routers import events, predict
+
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="UrbanFlow Nexus", description="Traffic Intervention Intelligence Platform", version="1.0.0")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, restrict this to frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(events.router, prefix="/api/v1")
+app.include_router(predict.router, prefix="/api/v1")
 class EventIngestRequest(BaseModel):
     event_type: str
     priority: str

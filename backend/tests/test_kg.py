@@ -2,8 +2,11 @@ from app.knowledge_graph import kg
 from unittest.mock import patch, MagicMock
 
 def test_find_successful_interventions_fallback():
-    # Since we don't have Neo4j running in CI, the fallback should return a mock list
+    # Explicitly set driver to None to test the fallback logic
+    original_driver = kg.driver
+    kg.driver = None
     interventions = kg.find_successful_interventions("Accident", "Koramangala")
+    kg.driver = original_driver
     assert isinstance(interventions, list)
     assert len(interventions) > 0
     assert "strategy_name" in interventions[0]

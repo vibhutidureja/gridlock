@@ -7,7 +7,7 @@ class AIOrchestrator:
         # By default expects OPENAI_API_KEY environment variable
         api_key = os.getenv("OPENAI_API_KEY", "dummy-key-for-tests")
         # Initialize OpenAI Chat Model
-        self.llm = ChatOpenAI(temperature=0.2, model="gpt-4o", openai_api_key=api_key)
+        self.llm = ChatOpenAI(temperature=0.2, model="gpt-4o-mini", openai_api_key=api_key)
         
         self.prompt_template = PromptTemplate(
             input_variables=["event_type", "zone", "severity", "recommended_strategy", "officers", "barricades", "ties_score"],
