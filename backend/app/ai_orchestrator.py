@@ -44,7 +44,9 @@ class AIOrchestrator:
                 response = self.agent.run(prompt)
                 return response
             else:
-                return "Agent not initialized."
+                # Fallback to direct LLM call if Agent Executor is unavailable
+                resp = self.llm.invoke(prompt)
+                return resp.content
         except Exception as e:
             return f"Error generating brief: {str(e)}"
 
