@@ -111,13 +111,16 @@ export default function SimulationPanel({ events }: { events: any[] }) {
             
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                <div className="text-xs text-green-400 mb-1">Expected Impact</div>
-                <div className="text-xl font-bold text-white">-{result.expected_impact_reduction_pct.toFixed(1)}%</div>
+                <div className="text-xs text-green-400 mb-1">Causal Impact (Saved)</div>
+                <div className="text-xl font-bold text-white">{result.causal_data?.causal_impact_saved_mins?.toFixed(1) || 0} mins</div>
               </div>
               <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <div className="text-xs text-blue-400 mb-1">TIES Score</div>
-                <div className="text-xl font-bold text-white">{result.ties_score.toFixed(2)}</div>
+                <div className="text-xs text-blue-400 mb-1">TIES Score / Confidence</div>
+                <div className="text-xl font-bold text-white">{result.ties_score.toFixed(2)} / {result.causal_data?.confidence_pct?.toFixed(0) || 0}%</div>
               </div>
+            </div>
+            <div className="mt-2 text-right">
+              <span className="text-[10px] text-gray-500 font-mono">Agent routing latency: {result.causal_data?.calc_time_ms?.toFixed(0) || 0}ms</span>
             </div>
           </div>
         )}

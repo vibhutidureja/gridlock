@@ -18,7 +18,7 @@ export default function TrafficMapInner({ events }: { events: any[] }) {
   // The Mappls MapMyIndia REST API is returning a 401 Unauthorized for direct tile access.
   // This typically happens because Mappls requires OAuth Bearer tokens for modern SDKs.
   // For this beautiful dark dashboard, we will default to the open CartoDB Dark Matter tiles.
-  const tileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+  const tileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
 
   return (
     <div className="w-full h-full rounded-xl overflow-hidden glass-card border-[var(--color-card-border)] relative z-10">

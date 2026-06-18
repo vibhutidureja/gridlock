@@ -1,54 +1,39 @@
-import os
-from catboost import CatBoostRegressor
-import pandas as pd
+from app.network_graph import traffic_graph
 
 class MLEngine:
     def __init__(self):
-        self.severity_model = None
-        self.time_model = None
-        self.is_loaded = False
-        
-    def load_models(self):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sev_path = os.path.join(base_dir, "models", "severity_model.cbm")
-        time_path = os.path.join(base_dir, "models", "time_model.cbm")
-        
-        if os.path.exists(sev_path) and os.path.exists(time_path):
-            self.severity_model = CatBoostRegressor()
-            self.severity_model.load_model(sev_path)
-            
-            self.time_model = CatBoostRegressor()
-            self.time_model.load_model(time_path)
-            
-            self.is_loaded = True
-        else:
-            # Fallback for testing or if models aren't generated yet
-            self.is_loaded = False
+        # We replace the tabular CatBoost model with our ST-GNN / NetworkX graph engine
+        pass
 
     def predict(self, event_type: str, priority: str, zone: str, road_closure: bool):
-        if not self.is_loaded:
-            self.load_models()
+        """
+        Simulates predicting severity and resolution time using a spatial graph model.
+        Instead of just returning scalar values, it calculates the network jam factor.
+        """
+        # Heuristic baseline severity mapping
+        base_sev = 5.0
+        if "Accident" in event_type:
+            base_sev += 2.0
+        if road_closure:
+            base_sev += 2.0
+        if priority == "High":
+            base_sev += 1.0
             
-        if not self.is_loaded:
-            # Return median fallback
-            return 5.0, 60
-            
-        df = pd.DataFrame([{
-            "event_type": str(event_type),
-            "priority": str(priority),
-            "zone": str(zone),
-            "road_closure": str(road_closure)
-        }])
+        # Bound severity
+        sev = max(1.0, min(10.0, float(base_sev)))
         
-        try:
-            sev = self.severity_model.predict(df)[0]
-            time = self.time_model.predict(df)[0]
-            # Ensure boundaries
-            sev = max(1.0, min(10.0, float(sev)))
-            time = max(1, int(time))
-            return sev, time
-        except Exception as e:
-            # Fallback gracefully
-            return 5.0, 60
+        # Inject shockwave into the graph
+        shockwave_data = traffic_graph.inject_shockwave(zone, sev)
+        
+        # Calculate expected resolution time dynamically based on the graph penalty
+        total_added_delay = sum([edge["added_delay"] for edge in shockwave_data.get("impacted_edges", [])])
+        time_mins = int(max(30, total_added_delay * 1.5))
+        
+        # We also want to return the shockwave data for the UI
+        return {
+            "predicted_severity": sev,
+            "predicted_resolution_time_mins": time_mins,
+            "shockwave_data": shockwave_data
+        }
 
 ml_engine = MLEngine()

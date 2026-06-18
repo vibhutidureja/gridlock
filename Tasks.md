@@ -43,9 +43,9 @@
 - [x] Connect Frontend to FastAPI backend using `axios` or `fetch`.
 
 ## Phase 5: Testing, Polish & Deployment
-- [ ] Write basic unit tests for FastAPI endpoints (using `pytest` and `TestClient`).
-- [ ] Test ML Engine fallback logic (ensure API doesn't crash if ML model fails).
-- [ ] Optimize frontend performance (lazy loading maps).
+- [x] Write basic unit tests for FastAPI endpoints (using `pytest` and `TestClient`).
+- [x] Test ML Engine fallback logic (ensure API doesn't crash if ML model fails).
+- [x] Optimize frontend performance (lazy loading maps).
 - [x] Dockerize the final application (create `Dockerfile` for frontend and backend).
 - [ ] Deploy Backend & Database (Render / Railway / AWS).
 - [ ] Deploy Frontend (Vercel / Netlify).

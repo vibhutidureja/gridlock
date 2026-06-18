@@ -18,20 +18,20 @@ export default function Sidebar() {
           <LayoutDashboard size={20} />
           Command Center
         </Link>
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors">
-          <Map size={20} />
-          Live Map
+        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <Map className="w-5 h-5" />
+          <span>Live Map</span>
         </Link>
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors">
-          <History size={20} />
-          Interventions
+        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <History className="w-5 h-5" />
+          <span>Interventions</span>
         </Link>
       </nav>
       
       <div className="p-4 border-t border-[var(--color-card-border)]">
-        <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors">
-          <Settings size={20} />
-          Settings
+        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <Settings className="w-5 h-5" />
+          <span>Settings</span>
         </Link>
       </div>
     </aside>
