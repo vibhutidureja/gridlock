@@ -9,12 +9,13 @@ We shift traffic management from reactive monitoring to proactive, optimized int
 - **Predict Operational Impact**: Forecast the severity and expected resolution time.
 - **Learn from History**: Retrieve past successful interventions for similar events.
 - **Simulate Counterfactuals**: Compare the impact of "Doing Nothing" versus specific mitigation strategies.
-- **Optimize Resources**: Recommend a deployment plan that yields the highest return on investment (ROI) using the Traffic Intervention Effectiveness Score (TIES).
+- **Optimize Resources**: Recommend a deployment plan using a trained Reinforcement Learning (PPO) agent that maximizes the return on investment (ROI) via the Traffic Intervention Effectiveness Score (TIES).
 - **Execute & Learn**: Generate operational briefs and feed outcomes back into the system to improve future decisions.
 
 ## Key Innovations
 - **Counterfactual Causal Inference**: Mathematically evaluating the impact of interventions before deploying them.
 - **Traffic Intervention Effectiveness Score (TIES)**: An economic optimization metric ensuring limited resources (officers, barricades) are deployed efficiently.
+- **Reinforcement Learning Agent**: A stateful Maskable PPO model that dynamically prescribes the optimal intervention strategy based on live traffic congestion and city-wide load.
 - **Intervention Knowledge Graph**: A continuously updated repository mapping events to successful (and failed) interventions.
 
 ## Architecture Overview
@@ -22,7 +23,7 @@ UrbanFlow Nexus relies on a specialized, high-performance tech stack:
 - **Data Layer**: PostgreSQL (with PostGIS) for relational and spatial data.
 - **Graph Layer**: NetworkX for rapid, in-memory road network simulations. Neo4j for the Intervention Knowledge Graph.
 - **Machine Learning Layer**: CatBoost and Scikit-Learn for accurate tabular predictions (Severity, Resolution Time) derived from categorical incident data.
-- **Optimization Layer**: Google OR-Tools to mathematically maximize the TIES metric.
+- **Reinforcement Learning Layer**: Stable-Baselines3 (MaskablePPO) and Gymnasium for stateful intervention optimization and resource allocation.
 - **AI Orchestration Layer**: LangChain and OpenAI (Agentic RAG) for reasoning and operational brief generation.
 - **Application Layer**: FastAPI backend and Next.js frontend.
 

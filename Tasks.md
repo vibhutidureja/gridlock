@@ -28,6 +28,14 @@
 - [x] Export trained `.cbm` models to backend `models/` directory.
 - [x] Build `MLEngine` class to load models and serve predictions dynamically.
 
+## Phase 3.5: Reinforcement Learning (RL) Engine
+- [x] Define a custom `Gymnasium` Environment (`MockTrafficEnv`) to simulate city load and active congestion.
+- [x] Train a `MaskablePPO` agent (Stable-Baselines3) to pick optimal interventions based on CatBoost risk signals.
+- [x] Conduct Ablation Studies (Rule-Based vs PPO vs Oracle Ceilings).
+- [x] Implement Action Masking to prevent illegal operations when resources (officers/barricades) are depleted.
+- [x] Build stateful `SimulationContext` for real-time tracking of city-wide event decay.
+- [x] Integrate `rl_inference.py` into FastAPI simulate endpoint.
+
 ## Phase 4: Frontend Development (Next.js)
 - [x] Set up Tailwind CSS and UI component library (shadcn/ui or MUI).
 - [x] Build global layout (Navbar, Sidebar, Dashboard wrapper).
