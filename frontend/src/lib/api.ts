@@ -1,13 +1,14 @@
 import axios from "axios";
 
-// Using NEXT_PUBLIC_API_URL if defined, otherwise defaulting to localhost
-const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Using explicit 127.0.0.1 to avoid IPv6 localhost blackholes
+const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 // Ensure it always has /api/v1 even if the cached env var doesn't
 const API_URL = envUrl.includes('/api/v1') ? envUrl : `${envUrl.replace(/\/$/, '')}/api/v1`;
 const baseURL = API_URL.endsWith('/') ? API_URL : `${API_URL}/`;
 
 export const api = axios.create({
   baseURL: baseURL,
+  timeout: 5000,
   headers: {
     "Content-Type": "application/json",
   },

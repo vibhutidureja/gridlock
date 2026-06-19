@@ -1,3 +1,5 @@
+"use client";
+
 import { LayoutDashboard, Map, Settings, History, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 

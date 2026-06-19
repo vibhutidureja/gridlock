@@ -11,13 +11,18 @@ import EventForm from "@/components/EventForm";
 export default function Home() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     try {
+      console.log("Fetching events...");
       const data = await getEvents();
-      setEvents(data);
-    } catch (error) {
+      console.log("Events fetched:", data);
+      setEvents(data || []);
+      setErrorMsg(null);
+    } catch (error: any) {
       console.error("Failed to fetch events", error);
+      setErrorMsg(error?.message || "Unknown error occurred while fetching events.");
     } finally {
       setLoading(false);
     }
@@ -31,10 +36,21 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [fetchEvents]);
 
+  if (errorMsg) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center">
+        <div className="text-red-500 font-bold mb-2">Error connecting to backend</div>
+        <div className="text-gray-400 font-mono text-sm max-w-lg text-center">{errorMsg}</div>
+        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-blue-600 rounded text-white text-sm">Retry</button>
+      </div>
+    );
+  }
+
   if (loading && events.length === 0) {
     return (
-      <div className="h-full w-full flex items-center justify-center">
+      <div className="h-full w-full flex items-center justify-center flex-col gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+        <div className="text-gray-500 text-sm">Connecting to UrbanFlow AI Engine...</div>
       </div>
     );
   }

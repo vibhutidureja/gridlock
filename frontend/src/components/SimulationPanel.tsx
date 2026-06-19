@@ -4,11 +4,13 @@ import { useState } from "react";
 import { simulateImpact } from "@/lib/api";
 import { Bot, Play, ShieldAlert, Cpu } from "lucide-react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function SimulationPanel({ events }: { events: any[] }) {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [officers, setOfficers] = useState(5);
   const [barricades, setBarricades] = useState(10);
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>(null);
 
   const handleSimulate = async () => {
@@ -23,6 +25,7 @@ export default function SimulationPanel({ events }: { events: any[] }) {
         event_type: targetEvent?.event_type || "Accident",
         zone: targetEvent?.zone || "Central",
         predicted_severity: targetEvent?.predicted_severity || 5.0,
+        predicted_resolution_time_mins: targetEvent?.predicted_resolution_time_mins || 60,
         available_officers: officers,
         available_barricades: barricades,
       });
