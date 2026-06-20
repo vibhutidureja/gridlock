@@ -55,6 +55,11 @@ class EventCreate(BaseModel):
 class EventUpdate(BaseModel):
     road_closure: Optional[bool] = None
 
+class EventResolve(BaseModel):
+    resolution_description: str
+    actual_resolution_time_mins: int
+    ai_accurate: bool
+
 class EventResponse(BaseModel):
     id: uuid.UUID
     event_type: str
@@ -64,6 +69,10 @@ class EventResponse(BaseModel):
     location: Optional[str] = None
     predicted_severity: Optional[float] = None
     predicted_resolution_time_mins: Optional[int] = None
+    status: str = "Active"
+    resolution_description: Optional[str] = None
+    actual_resolution_time_mins: Optional[int] = None
+    ai_accurate: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,6 +92,10 @@ def _serialize(event: TrafficEvent) -> EventResponse:
         location=loc,
         predicted_severity=event.predicted_severity,
         predicted_resolution_time_mins=event.predicted_resolution_time_mins,
+        status=event.status,
+        resolution_description=event.resolution_description,
+        actual_resolution_time_mins=event.actual_resolution_time_mins,
+        ai_accurate=event.ai_accurate,
     )
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -133,6 +146,26 @@ def update_event(event_id: str, event: EventUpdate, db: Session = Depends(get_db
     update_data = event.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_event, key, value)
+
+    db.commit()
+    db.refresh(db_event)
+    return _serialize(db_event)
+
+@router.post("/{event_id}/resolve", response_model=EventResponse)
+def resolve_event(event_id: str, resolve_data: EventResolve, db: Session = Depends(get_db)):
+    try:
+        uuid_obj = uuid.UUID(event_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    db_event = db.query(TrafficEvent).filter(TrafficEvent.id == uuid_obj).first()
+    if db_event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    db_event.status = "Resolved"
+    db_event.resolution_description = resolve_data.resolution_description
+    db_event.actual_resolution_time_mins = resolve_data.actual_resolution_time_mins
+    db_event.ai_accurate = resolve_data.ai_accurate
 
     db.commit()
     db.refresh(db_event)

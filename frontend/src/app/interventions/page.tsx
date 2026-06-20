@@ -8,7 +8,10 @@ export default function InterventionsPage() {
   const [events, setEvents] = useState<any[]>([]);
 
   const fetchEvents = useCallback(async () => {
-    try { const data = await getEvents(); setEvents(data || []); } catch {}
+    try { 
+      const data = await getEvents(); 
+      setEvents((data || []).filter((e: any) => e.status === "Resolved")); 
+    } catch {}
   }, []);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);

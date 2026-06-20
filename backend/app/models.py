@@ -16,6 +16,11 @@ class TrafficEvent(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     location = Column(String, nullable=True)
 
+    status = Column(String, default="Active")
+    resolution_description = Column(String, nullable=True)
+    actual_resolution_time_mins = Column(Integer, nullable=True)
+    ai_accurate = Column(Boolean, nullable=True)
+
 class SimulatedIntervention(Base):
     __tablename__ = "simulated_interventions"
 

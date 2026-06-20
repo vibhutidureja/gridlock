@@ -3,7 +3,11 @@ import requests
 import os
 
 def seed_data():
-    csv_path = r"c:\Users\HP\OneDrive\Desktop\Gridlock\dataset\Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv"
+    # Find CSV path relative to script directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    csv_path = os.path.join(base_dir, "dataset", "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv")
+    if not os.path.exists(csv_path):
+        csv_path = os.path.join(os.getcwd(), "dataset", "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv")
     if not os.path.exists(csv_path):
         print(f"Dataset not found at {csv_path}")
         return

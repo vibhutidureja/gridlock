@@ -12,9 +12,13 @@ function priorityConfig(priority: string) {
 
 export default function EventFeed({ events, onSelectEvent }: { events: any[]; onSelectEvent?: (e: any) => void }) {
   const [filter, setFilter] = useState<string>("All");
-  const filters = ["All", "Critical", "High", "Medium", "Low"];
+  const filters = ["All", "New", "Observing", "Resolved", "Critical"];
 
-  const filtered = filter === "All" ? events : events.filter(e => e.priority === filter);
+  const filtered = events.filter(e => {
+    if (filter === "All") return e.status !== "Resolved";
+    if (filter === "Critical") return e.priority === "Critical" && e.status !== "Resolved";
+    return (e.status || "New") === filter;
+  });
 
   if (events.length === 0) {
     return (
@@ -95,6 +99,13 @@ export default function EventFeed({ events, onSelectEvent }: { events: any[]; on
                     style={{ background: p.bg, color: p.text, borderColor: p.border }}
                   >
                     {p.label}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    event.status === "Resolved" ? "bg-[#E8F5EB] text-[#26A541] border-[#B2DFBC]" :
+                    event.status === "Observing" ? "bg-[#FFF8E6] text-[#F5A623] border-[#FDEDB2]" :
+                    "bg-[#EBF2FF] text-[#2874F0] border-[#2874F0]/30"
+                  }`}>
+                    {event.status || "New"}
                   </span>
                   <span className="text-[10px] font-semibold text-[#717171]">
                     Sev {event.predicted_severity?.toFixed(1)}/10

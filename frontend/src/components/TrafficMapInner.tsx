@@ -1,9 +1,18 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, ZoomControl, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useState, useRef, Fragment } from "react";
+
+function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lon: number) => void }) {
+  useMapEvents({
+    click(e) {
+      if (onMapClick) onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
 
 // Custom SVG markers by priority
 function createPriorityIcon(priority: string, eventType: string) {
@@ -72,7 +81,7 @@ function severityToColor(sev: number): string {
   return "#F5A623";
 }
 
-export default function TrafficMapInner({ events, selectedEventId }: { events: any[]; selectedEventId?: string }) {
+export default function TrafficMapInner({ events, selectedEventId, onMapClick, newPinLocation }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null }) {
   // MapMyIndia tile URL - uses REST API key
   const mapKey = process.env.NEXT_PUBLIC_MAPMYINDIA_API_KEY;
   const tileUrl = mapKey && mapKey.length > 10
@@ -82,7 +91,7 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
     ? '© <a href="https://www.mapmyindia.com" target="_blank">MapMyIndia</a>'
     : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>';
 
-  const [shockwaves, setShockwaves] = useState<Record<string, [number, number][][]>>({});
+  const [shockwaves, setShockwaves] = useState<Record<string, {coords: [number, number][], isAlternative: boolean}[]>>({});
   const fetchedIds = useRef<Set<string>>(new Set());
 
   // Parse event location
@@ -98,7 +107,7 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
 
   useEffect(() => {
     const fetchRoutes = async () => {
-      const newShockwaves: Record<string, [number, number][][]> = {};
+      const newShockwaves: Record<string, {coords: [number, number][], isAlternative: boolean}[]> = {};
 
       for (const event of events) {
         if (fetchedIds.current.has(event.id)) continue;
@@ -106,35 +115,41 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
 
         const [lat, lon] = parseLocation(event.location);
         const sev = event.predicted_severity || 5;
-        const dist = 0.012 + (sev * 0.001);
+        const dist = 0.005 + (sev * 0.0005); // Smaller realistic distance
 
-        // Generate 3 road-snapped shockwave branches radiating outward
         const branches: [number, number][] = [
-          [lat + dist, lon + dist * 0.6],
-          [lat - dist * 0.7, lon + dist],
-          [lat + dist * 0.4, lon - dist],
+          [lat + dist * 1.5, lon + dist],
+          [lat - dist * 1.2, lon + dist * 1.5],
+          [lat + dist * 0.8, lon - dist * 1.5],
         ];
 
-        const paths: [number, number][][] = [];
+        const paths: {coords: [number, number][], isAlternative: boolean}[] = [];
         try {
           await Promise.all(
             branches.map(async ([blat, blon]) => {
               const res = await fetch(
-                `https://router.project-osrm.org/route/v1/driving/${lon},${lat};${blon},${blat}?overview=full&geometries=geojson`
+                `https://router.project-osrm.org/route/v1/driving/${lon},${lat};${blon},${blat}?overview=full&geometries=geojson&alternatives=true`
               );
+              if (!res.ok) throw new Error("OSRM API rate limit or error");
               const data = await res.json();
               if (data.routes?.length > 0) {
                 const coords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
-                paths.push(coords);
+                paths.push({ coords, isAlternative: false });
+                if (data.routes.length > 1) {
+                  const altCoords = data.routes[1].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+                  paths.push({ coords: altCoords, isAlternative: true });
+                }
               }
             })
           );
-        } catch { /* fallback to straight lines if OSRM fails */ }
+        } catch { 
+          // Silently handle OSRM failures 
+        }
 
         if (paths.length === 0) {
           // Straight line fallback
           branches.forEach(([blat, blon]) => {
-            paths.push([[lat, lon], [blat, blon]]);
+            paths.push({ coords: [[lat, lon], [blat, blon]], isAlternative: false });
           });
         }
 
@@ -170,6 +185,16 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
       >
         <ZoomControl position="bottomright" />
         <TileLayer url={tileUrl} attribution={attribution} />
+        <MapClickHandler onMapClick={onMapClick} />
+
+        {newPinLocation && (
+          <Marker position={newPinLocation}>
+            <Popup>
+              <div className="text-sm font-bold text-[#2874F0]">New Event Location</div>
+              <div className="text-xs text-[#717171]">Click "Log Event" to proceed</div>
+            </Popup>
+          </Marker>
+        )}
 
         {events.map((event) => {
           const [lat, lon] = parseLocation(event.location);
@@ -183,7 +208,7 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
               {/* Impact radius circle */}
               <Circle
                 center={[lat, lon]}
-                radius={800 + sev * 150}
+                radius={100 + sev * 30}
                 pathOptions={{
                   color: color,
                   fillColor: color,
@@ -243,28 +268,36 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
               </Marker>
 
               {/* Road closure blockage markers on shockwave ends */}
-              {event.road_closure && shockwaves[event.id]?.map((path, pIdx) => {
-                const endPoint = path[Math.floor(path.length * 0.6)];
+              {event.road_closure && shockwaves[event.id]?.map((pathObj, pIdx) => {
+                if (pathObj.isAlternative) return null; // Don't block alternatives
+                const path = pathObj.coords;
+                const endPoint = path[Math.floor(path.length * 0.3)]; // Much closer to the event!
                 if (!endPoint) return null;
                 return (
                   <Marker key={`block-${event.id}-${pIdx}`} position={endPoint} icon={createBlockageIcon()}>
-                    <Popup>
-                      <div className="text-xs font-semibold text-red-700">Road Blocked<br />{event.zone} — {event.event_type}</div>
+                    <Popup maxWidth={220}>
+                      <div className="font-sans min-w-[180px]">
+                        <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
+                        <div className="text-[11px] text-[#444] leading-relaxed">
+                          <strong>{event.event_type}</strong> in {event.zone} zone has caused a major blockage. 
+                          <span className="text-[#2874F0] block mt-1 font-semibold">↳ Traffic is being diverted to Alternative Routes.</span>
+                        </div>
+                      </div>
                     </Popup>
                   </Marker>
                 );
               })}
 
               {/* Traffic shockwave polylines */}
-              {(shockwaves[event.id] || []).map((path, pIdx) => (
+              {(shockwaves[event.id] || []).map((pathObj, pIdx) => (
                 <Polyline
                   key={`shock-${event.id}-${pIdx}`}
-                  positions={path}
+                  positions={pathObj.coords}
                   pathOptions={{
-                    color,
-                    weight: sev > 7 ? 5 : sev > 5 ? 4 : 3,
-                    opacity: isSelected ? 1.0 : 0.75,
-                    dashArray: sev > 7 ? undefined : "8 4",
+                    color: pathObj.isAlternative ? "#2874F0" : color,
+                    weight: pathObj.isAlternative ? 3 : (sev > 7 ? 5 : sev > 5 ? 4 : 3),
+                    opacity: isSelected ? 1.0 : (pathObj.isAlternative ? 0.8 : 0.75),
+                    dashArray: pathObj.isAlternative ? "6 6" : (sev > 7 ? undefined : "8 4"),
                     lineCap: "round",
                     lineJoin: "round",
                   }}
@@ -294,6 +327,10 @@ export default function TrafficMapInner({ events, selectedEventId }: { events: a
             <span className="text-white text-[6px] font-bold">X</span>
           </div>
           <span className="text-[#717171]">Road Blockage</span>
+        </div>
+        <div className="flex items-center gap-2 mt-1 pt-1">
+          <div className="w-3 h-1 bg-[#2874F0]" />
+          <span className="text-[#717171]">Alternative Route</span>
         </div>
       </div>
     </div>

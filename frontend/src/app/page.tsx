@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { getEvents } from "@/lib/api";
 import KPICards from "@/components/KPICards";
+import TrafficCharts from "@/components/TrafficCharts";
 import EventFeed from "@/components/EventFeed";
 import SimulationPanel from "@/components/SimulationPanel";
 import TrafficMap from "@/components/TrafficMap";
@@ -17,6 +18,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("map");
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>();
+  const [newPinLocation, setNewPinLocation] = useState<[number, number] | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -110,6 +112,9 @@ export default function Home() {
       {/* KPI Cards */}
       <KPICards events={events} />
 
+      {/* Traffic Charts Dashboard */}
+      <TrafficCharts events={events} />
+
       {/* Main content area */}
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 min-h-0">
 
@@ -126,7 +131,15 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-1 min-h-0">
-              <TrafficMap events={events} selectedEventId={selectedEventId} />
+              <TrafficMap 
+                events={events} 
+                selectedEventId={selectedEventId} 
+                newPinLocation={newPinLocation}
+                onMapClick={(lat, lon) => {
+                  setNewPinLocation([lat, lon]);
+                  setActiveTab("log");
+                }}
+              />
             </div>
           </div>
 
@@ -212,7 +225,13 @@ export default function Home() {
 
             {activeTab === "log" && (
               <div className="h-full overflow-auto">
-                <EventForm onEventCreated={() => fetchEvents(true)} />
+                <EventForm 
+                  initialLocation={newPinLocation} 
+                  onEventCreated={() => {
+                    fetchEvents(true);
+                    setNewPinLocation(null);
+                  }} 
+                />
               </div>
             )}
 

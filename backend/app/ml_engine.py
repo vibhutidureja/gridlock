@@ -19,14 +19,42 @@ class MLEngine:
         Predicts severity and resolution time using a spatial graph model
         AND the new CatBoost SLA predictor.
         """
-        # Heuristic baseline severity mapping
-        base_sev = 5.0
-        if "Accident" in event_type:
+        # Dynamic severity calculation
+        import datetime
+        now = datetime.datetime.now()
+        hour = now.hour
+        day = now.weekday() # 0-6 (0=Monday, 6=Sunday)
+        
+        # 1. Base Severity by priority
+        priority_map = {"Critical": 7.0, "High": 5.0, "Medium": 3.0, "Low": 1.0}
+        base_sev = priority_map.get(priority, 5.0)
+        
+        # 2. Temporal Factor (Time-of-day & Day-of-week)
+        if day < 5: # Weekday (Mon-Fri)
+            if (8 <= hour <= 11) or (17 <= hour <= 20):
+                base_sev += 2.5 # Peak rush hour
+            elif (22 <= hour) or (hour <= 5):
+                base_sev -= 1.5 # Dead of night
+        else: # Weekend (Sat-Sun)
+            if (17 <= hour <= 23):
+                base_sev += 1.5 # Weekend evening rush
+            elif (0 <= hour <= 8):
+                base_sev -= 2.0 # Weekend early morning
+            
+        # 3. Zone density factor
+        high_density_zones = ["Central", "Koramangala", "Indiranagar", "MG Road"]
+        if zone in high_density_zones:
+            base_sev += 1.5
+            
+        # 4. Event type factor
+        if "Accident" in event_type or "Fire" in event_type:
             base_sev += 2.0
+        elif "Protest" in event_type or "VIP" in event_type:
+            base_sev += 1.5
+            
+        # 5. Road closure multiplier
         if road_closure:
-            base_sev += 2.0
-        if priority == "High":
-            base_sev += 1.0
+            base_sev += 2.5
             
         sev = max(1.0, min(10.0, float(base_sev)))
         

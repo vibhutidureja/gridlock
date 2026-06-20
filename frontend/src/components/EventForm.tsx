@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createEvent } from "@/lib/api";
 import { PlusCircle, Loader2, MapPin, AlertTriangle } from "lucide-react";
 
@@ -22,7 +22,20 @@ const ZONE_COORDS: Record<string, [number, number]> = {
   Marathahalli: [12.9591, 77.7003],
 };
 
-export default function EventForm({ onEventCreated }: { onEventCreated: () => void }) {
+const POLICE_STATIONS: Record<string, string> = {
+  Central: "Cubbon Park Police Station",
+  Koramangala: "Koramangala Police Station",
+  Indiranagar: "Indiranagar Police Station",
+  Whitefield: "Whitefield Police Station",
+  "Electronic City": "Electronic City Police Station",
+  Hebbal: "Hebbal Police Station",
+  "JP Nagar": "JP Nagar Police Station",
+  Jayanagar: "Jayanagar Police Station",
+  "MG Road": "Ashok Nagar Police Station",
+  Marathahalli: "Marathahalli Police Station",
+};
+
+export default function EventForm({ onEventCreated, initialLocation }: { onEventCreated: () => void; initialLocation?: [number, number] | null }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +44,29 @@ export default function EventForm({ onEventCreated }: { onEventCreated: () => vo
     priority: "High",
     zone: "Central",
     road_closure: false,
-    location: "POINT(77.5946 12.9716)",
+    location: initialLocation ? `POINT(${initialLocation[1].toFixed(4)} ${initialLocation[0].toFixed(4)})` : "POINT(77.5946 12.9716)",
   });
+
+  useEffect(() => {
+    if (initialLocation) {
+      // Find closest zone based on Euclidean distance
+      let closestZone = "Central";
+      let minDistance = Infinity;
+      Object.entries(ZONE_COORDS).forEach(([zone, coords]) => {
+        const dist = Math.sqrt(Math.pow(coords[0] - initialLocation[0], 2) + Math.pow(coords[1] - initialLocation[1], 2));
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestZone = zone;
+        }
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        zone: closestZone,
+        location: `POINT(${initialLocation[1].toFixed(4)} ${initialLocation[0].toFixed(4)})`
+      }));
+    }
+  }, [initialLocation]);
 
   const handleZoneChange = (zone: string) => {
     const coords = ZONE_COORDS[zone] || [12.9716, 77.5946];
@@ -123,16 +157,25 @@ export default function EventForm({ onEventCreated }: { onEventCreated: () => vo
             </div>
           </div>
 
-          {/* Location preview */}
-          <div>
-            <label className="block text-xs font-600 text-[#717171] mb-1.5">Auto-Generated Location</label>
-            <div className="flex items-center gap-2 bg-[#F8F9FB] border border-[#E0E3E8] rounded px-3 py-2">
-              <MapPin size={13} className="text-[#2874F0] shrink-0" />
-              <span className="text-xs font-mono text-[#444] truncate">
-                {formData.location.replace("POINT(", "").replace(")", "")}
-              </span>
+          {/* Location preview & Police Station */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-600 text-[#717171] mb-1.5">Map Coordinates</label>
+              <div className="flex items-center gap-2 bg-[#F8F9FB] border border-[#E0E3E8] rounded px-3 py-2">
+                <MapPin size={13} className="text-[#2874F0] shrink-0" />
+                <span className="text-xs font-mono text-[#444] truncate">
+                  {formData.location.replace("POINT(", "").replace(")", "")}
+                </span>
+              </div>
             </div>
-            <p className="text-[10px] text-[#9CA3AF] mt-1">Location auto-set based on selected zone with randomized offset.</p>
+            <div>
+              <label className="block text-xs font-600 text-[#717171] mb-1.5">Nearest Police Station</label>
+              <div className="flex items-center gap-2 bg-[#E8F5EB] border border-[#B2DFBC] rounded px-3 py-2">
+                <span className="text-[11px] font-bold text-[#1B5E20] truncate">
+                  {POLICE_STATIONS[formData.zone]}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Road closure */}

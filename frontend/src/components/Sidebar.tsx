@@ -1,8 +1,9 @@
 "use client";
 
-import { LayoutDashboard, Map, History, Settings, AlertTriangle, Activity, ChevronRight, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Map, History, Settings, AlertTriangle, Activity, ChevronRight, BarChart2, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Command Center", href: "/", badge: null },
@@ -15,6 +16,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const notifications = [
+    { id: 1, icon: "🚨", text: "Protest detected in Central zone", time: "2 min ago", read: false },
+    { id: 2, icon: "⚠", text: "Route diversion active for Airport Rd", time: "15 min ago", read: false },
+    { id: 3, icon: "✅", text: "Road reopened near MG Road", time: "1 hour ago", read: true }
+  ];
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <aside className="w-[240px] bg-white border-r border-[#E0E3E8] hidden md:flex flex-col h-full sticky top-0 z-40 shadow-sm">
@@ -82,6 +91,43 @@ export default function Sidebar() {
           </li>
         </ul>
       </nav>
+
+      {/* Notifications Footer */}
+      <div className="p-4 border-t border-[#E0E3E8] bg-white shrink-0 flex items-center justify-between relative group">
+        <div className="relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="p-1.5 rounded-full hover:bg-[#F1F3F6] relative transition-colors"
+          >
+            <Bell size={18} className="text-[#444]" />
+            {unreadCount > 0 && (
+              <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#D0021B] text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {unreadCount}
+              </div>
+            )}
+          </button>
+          
+          {showNotifications && (
+            <div className="absolute bottom-full left-0 mb-2 w-64 bg-white border border-[#E0E3E8] rounded-lg shadow-lg overflow-hidden z-50">
+              <div className="bg-[#F8F9FB] px-3 py-2 border-b border-[#E0E3E8] flex justify-between items-center">
+                <span className="text-xs font-bold text-[#212121]">Notifications</span>
+                <span className="text-[10px] text-[#2874F0] cursor-pointer hover:underline">Mark all read</span>
+              </div>
+              <div className="max-h-60 overflow-auto">
+                {notifications.map(n => (
+                  <div key={n.id} className={`p-3 border-b border-[#F1F3F6] flex gap-2 ${!n.read ? 'bg-[#EBF2FF]/30' : ''}`}>
+                    <span className="text-sm">{n.icon}</span>
+                    <div>
+                      <div className={`text-xs ${!n.read ? 'font-bold text-[#212121]' : 'text-[#444]'}`}>{n.text}</div>
+                      <div className="text-[10px] text-[#9CA3AF] mt-0.5">{n.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* System Status */}
       <div className="p-3 border-t border-[#E0E3E8] bg-[#F8F9FB]">

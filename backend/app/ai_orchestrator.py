@@ -14,11 +14,22 @@ def run_counterfactual(strategy: str) -> str:
     res = causal_engine.score_intervention(strategy, 60.0)
     return f"Counterfactual for {strategy}: Saves {res['causal_impact_saved_mins']} mins. Confidence: {res['confidence_pct']}%"
 
+@tool
+def get_alternate_route(zone: str) -> str:
+    """Calculates the best alternate routing path to bypass the affected zone."""
+    from app.network_graph import traffic_graph
+    # Find a bypass path
+    path, length = traffic_graph.shortest_path(source="Silk Board", target="Marathahalli")
+    if path:
+        route_str = " -> ".join(path)
+        return f"Calculated alternate route avoiding {zone}: {route_str} (Estimated time: {length} mins)"
+    return f"Divert traffic via Outer Ring Road or nearest major arterial avoiding {zone}."
+
 class AIOrchestrator:
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY", "dummy")
         self.llm = ChatOpenAI(temperature=0.2, model="gpt-4o-mini", openai_api_key=api_key)
-        self.tools = [query_graph, run_counterfactual]
+        self.tools = [query_graph, run_counterfactual, get_alternate_route]
         self.agent = None
 
     def generate_operational_brief(self, event_type: str, zone: str, severity: float, recommended_strategy: str, officers: int, barricades: int, ties_score: float) -> str:
@@ -37,7 +48,18 @@ class AIOrchestrator:
              brief = f"{agent_logs}\n**Operational Brief:**\nBased on historical causal matching (2023 Flood Event Protocol), deploying {officers} officers and {barricades} barricades using '{recommended_strategy}' will mitigate the shockwave at {zone} and save an estimated 24 mins."
              return brief
 
-        prompt = f"An incident ({event_type}) occurred in {zone} with severity {severity}. Evaluate the strategy '{recommended_strategy}' using your tools, then output a final operational brief for officers to deploy {officers} officers and {barricades} barricades with TIES score {ties_score}."
+        prompt = f"""An incident ({event_type}) occurred in {zone} with severity {severity}. 
+Evaluate the strategy '{recommended_strategy}' using your tools. 
+CRITICAL: You must use the `get_alternate_route` tool to find a bypass and explicitly state the Alternate Route in the operational brief.
+
+Output a final structured operational brief for officers to deploy {officers} officers and {barricades} barricades with TIES score {ties_score}.
+Format it with clear headings and bullet points using hyphens (-) for lists:
+**1. INCIDENT OVERVIEW:**
+**2. RESOURCE ALLOCATION:**
+**3. RATIONALE FOR STRATEGY:**
+**4. RECOMMENDED ALTERNATE ROUTE:**
+**5. OPERATIONAL INSTRUCTIONS:**
+"""
         
         try:
             if self.agent:

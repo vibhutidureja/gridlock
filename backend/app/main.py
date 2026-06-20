@@ -90,7 +90,7 @@ def simulate_intervention(request: SimulateRequest):
     
     action_idx = rl_decision["action_id"]
     strat = rl_decision["recommended_action"]
-    alloc = rl_agent.get_resource_allocation(action_idx)
+    alloc = rl_agent.get_resource_allocation(action_idx, severity=request.predicted_severity)
     
     # Check if we have enough resources
     if alloc["officers"] > request.available_officers or alloc["barricades"] > request.available_barricades:
