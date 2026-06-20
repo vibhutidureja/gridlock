@@ -117,8 +117,18 @@ export default function EventFeed({ events, onSelectEvent }: { events: any[]; on
               <div className="mt-1.5 flex items-center justify-between">
                 <div className="flex items-center gap-1 text-[11px] text-[#9CA3AF]">
                   <MapPin size={10} />
-                  <span className="font-mono truncate max-w-[140px]">
-                    {event.location?.replace("POINT(", "").replace(")", "") || "N/A"}
+                  <span className="font-mono">
+                    {(() => {
+                      const loc = event.location;
+                      if (!loc) return "N/A";
+                      const match = loc.match(/POINT\(([\d.\-]+)\s+([\d.\-]+)\)/);
+                      if (match) {
+                        const lon = parseFloat(match[1]).toFixed(4);
+                        const lat = parseFloat(match[2]).toFixed(4);
+                        return `${lat}°N, ${lon}°E`;
+                      }
+                      return loc;
+                    })()}
                   </span>
                 </div>
                 <ChevronRight size={13} className="text-[#C2C8D4] group-hover:text-[#2874F0] transition-colors" />

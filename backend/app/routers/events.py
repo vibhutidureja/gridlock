@@ -1,13 +1,50 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.database import get_db
 from app.models import TrafficEvent
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 import uuid
+import struct
+import binascii
 
 router = APIRouter(prefix="/events", tags=["events"])
 
+# ── Zone centroid lookup ─────────────────────────────────────────────────────
+ZONE_COORDS = {
+    "Central":         "POINT(77.5946 12.9716)",
+    "Koramangala":     "POINT(77.6245 12.9352)",
+    "Indiranagar":     "POINT(77.6408 12.9784)",
+    "Whitefield":      "POINT(77.7499 12.9698)",
+    "Electronic City": "POINT(77.6770 12.8399)",
+    "Hebbal":          "POINT(77.5970 13.0358)",
+    "JP Nagar":        "POINT(77.5837 12.9102)",
+    "Jayanagar":       "POINT(77.5830 12.9308)",
+    "MG Road":         "POINT(77.6099 12.9756)",
+    "Marathahalli":    "POINT(77.7003 12.9591)",
+}
+
+# ── WKB → WKT converter (handles PostGIS Extended WKB with SRID) ─────────────
+def wkb_hex_to_wkt(hex_str: str) -> Optional[str]:
+    """Convert PostGIS WKB hex string to 'POINT(lon lat)' WKT."""
+    if not hex_str or hex_str.upper().startswith("POINT"):
+        return hex_str  # Already WKT
+    try:
+        raw = binascii.unhexlify(hex_str)
+        # Byte order: 01 = little-endian
+        byte_order = raw[0]
+        bo = "<" if byte_order == 1 else ">"
+        # WKB type at bytes 1-4; PostGIS Extended adds SRID flag (0x20000000)
+        wkb_type = struct.unpack_from(f"{bo}I", raw, 1)[0]
+        has_srid = bool(wkb_type & 0x20000000)
+        offset = 9 if has_srid else 5  # skip header (+4 bytes SRID if present)
+        lon, lat = struct.unpack_from(f"{bo}dd", raw, offset)
+        return f"POINT({lon:.6f} {lat:.6f})"
+    except Exception:
+        return None
+
+# ── Pydantic models ──────────────────────────────────────────────────────────
 class EventCreate(BaseModel):
     event_type: str
     priority: str
@@ -18,14 +55,37 @@ class EventCreate(BaseModel):
 class EventUpdate(BaseModel):
     road_closure: Optional[bool] = None
 
-class EventResponse(EventCreate):
+class EventResponse(BaseModel):
     id: uuid.UUID
+    event_type: str
+    priority: str
+    zone: str
+    road_closure: bool
     location: Optional[str] = None
     predicted_severity: Optional[float] = None
     predicted_resolution_time_mins: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+def _serialize(event: TrafficEvent) -> EventResponse:
+    """Convert a DB row to EventResponse, decoding WKB location if needed."""
+    loc = event.location
+    if loc and not loc.upper().startswith("POINT"):
+        loc = wkb_hex_to_wkt(loc)
+    if not loc:
+        loc = ZONE_COORDS.get(event.zone, "POINT(77.5946 12.9716)")
+    return EventResponse(
+        id=event.id,
+        event_type=event.event_type,
+        priority=event.priority,
+        zone=event.zone,
+        road_closure=event.road_closure,
+        location=loc,
+        predicted_severity=event.predicted_severity,
+        predicted_resolution_time_mins=event.predicted_resolution_time_mins,
+    )
+
+# ── Routes ───────────────────────────────────────────────────────────────────
 @router.post("/", response_model=EventResponse)
 def create_event(event: EventCreate, db: Session = Depends(get_db)):
     # Auto-run ML predictions so fields are never null
@@ -38,22 +98,8 @@ def create_event(event: EventCreate, db: Session = Depends(get_db)):
         predicted_severity = 5.0
         predicted_resolution_time_mins = 60
 
-    # Use provided location or default to zone centroid
-    location = event.location
-    if not location:
-        zone_coords = {
-            "Central": "POINT(77.5946 12.9716)",
-            "Koramangala": "POINT(77.6245 12.9352)",
-            "Indiranagar": "POINT(77.6408 12.9784)",
-            "Whitefield": "POINT(77.7499 12.9698)",
-            "Electronic City": "POINT(77.6770 12.8399)",
-            "Hebbal": "POINT(77.5970 13.0358)",
-            "JP Nagar": "POINT(77.5837 12.9102)",
-            "Jayanagar": "POINT(77.5830 12.9308)",
-            "MG Road": "POINT(77.6099 12.9756)",
-            "Marathahalli": "POINT(77.7003 12.9591)",
-        }
-        location = zone_coords.get(event.zone, "POINT(77.5946 12.9716)")
+    # Use provided location or zone centroid — always store as plain WKT string
+    location = event.location or ZONE_COORDS.get(event.zone, "POINT(77.5946 12.9716)")
 
     db_event = TrafficEvent(
         **{k: v for k, v in event.model_dump().items() if k != "location"},
@@ -64,12 +110,14 @@ def create_event(event: EventCreate, db: Session = Depends(get_db)):
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
-    return db_event
+    return _serialize(db_event)
+
 
 @router.get("/", response_model=List[EventResponse])
 def get_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     events = db.query(TrafficEvent).offset(skip).limit(limit).all()
-    return events
+    return [_serialize(e) for e in events]
+
 
 @router.put("/{event_id}", response_model=EventResponse)
 def update_event(event_id: str, event: EventUpdate, db: Session = Depends(get_db)):
@@ -81,11 +129,11 @@ def update_event(event_id: str, event: EventUpdate, db: Session = Depends(get_db
     db_event = db.query(TrafficEvent).filter(TrafficEvent.id == uuid_obj).first()
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     update_data = event.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_event, key, value)
-        
+
     db.commit()
     db.refresh(db_event)
-    return db_event
+    return _serialize(db_event)

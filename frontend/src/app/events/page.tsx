@@ -76,8 +76,21 @@ export default function EventsPage() {
 
               {selectedEvent.location && (
                 <div className="ai-box mb-4">
-                  <div className="text-[10px] font-bold text-[#2874F0] uppercase tracking-wide mb-1">Location Coordinates</div>
-                  <div className="font-mono text-sm text-[#444]">{selectedEvent.location.replace("POINT(", "").replace(")", "")}</div>
+                  <div className="text-[10px] font-bold text-[#2874F0] uppercase tracking-wide mb-1">GPS Coordinates</div>
+                  {(() => {
+                    const match = selectedEvent.location.match(/POINT\(([\d.\-]+)\s+([\d.\-]+)\)/);
+                    if (match) {
+                      const lon = parseFloat(match[1]).toFixed(6);
+                      const lat = parseFloat(match[2]).toFixed(6);
+                      return (
+                        <div className="flex gap-4">
+                          <div><span className="text-[10px] text-[#9CA3AF]">Latitude</span><div className="font-mono text-sm font-semibold text-[#212121]">{lat}°N</div></div>
+                          <div><span className="text-[10px] text-[#9CA3AF]">Longitude</span><div className="font-mono text-sm font-semibold text-[#212121]">{lon}°E</div></div>
+                        </div>
+                      );
+                    }
+                    return <div className="font-mono text-sm text-[#444]">{selectedEvent.location}</div>;
+                  })()}
                 </div>
               )}
 
