@@ -1,22 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
   title: "UrbanFlow Nexus - Command Center",
-  description: "Prescriptive Traffic Intervention Engine",
+  description: "AI-Powered Prescriptive Traffic Intervention Engine for Smart Cities",
 };
 
 export default function RootLayout({
@@ -28,13 +24,13 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full`}
     >
-      <body suppressHydrationWarning className="h-full flex overflow-hidden">
+      <body suppressHydrationWarning className="h-full flex overflow-hidden bg-[#F1F3F6]">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           <Navbar />
-          <main className="flex-1 overflow-auto p-6 scroll-smooth">
+          <main className="flex-1 overflow-auto p-4 scroll-smooth">
             {children}
           </main>
         </div>

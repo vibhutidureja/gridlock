@@ -13,6 +13,7 @@ class EventCreate(BaseModel):
     priority: str
     zone: str
     road_closure: bool = False
+    location: Optional[str] = None
 
 class EventUpdate(BaseModel):
     road_closure: Optional[bool] = None
@@ -27,7 +28,39 @@ class EventResponse(EventCreate):
 
 @router.post("/", response_model=EventResponse)
 def create_event(event: EventCreate, db: Session = Depends(get_db)):
-    db_event = TrafficEvent(**event.model_dump())
+    # Auto-run ML predictions so fields are never null
+    try:
+        from app.ml_engine import ml_engine
+        predictions = ml_engine.predict(event.event_type, event.priority, event.zone, event.road_closure)
+        predicted_severity = predictions.get("predicted_severity", 5.0)
+        predicted_resolution_time_mins = predictions.get("predicted_resolution_time_mins", 60)
+    except Exception:
+        predicted_severity = 5.0
+        predicted_resolution_time_mins = 60
+
+    # Use provided location or default to zone centroid
+    location = event.location
+    if not location:
+        zone_coords = {
+            "Central": "POINT(77.5946 12.9716)",
+            "Koramangala": "POINT(77.6245 12.9352)",
+            "Indiranagar": "POINT(77.6408 12.9784)",
+            "Whitefield": "POINT(77.7499 12.9698)",
+            "Electronic City": "POINT(77.6770 12.8399)",
+            "Hebbal": "POINT(77.5970 13.0358)",
+            "JP Nagar": "POINT(77.5837 12.9102)",
+            "Jayanagar": "POINT(77.5830 12.9308)",
+            "MG Road": "POINT(77.6099 12.9756)",
+            "Marathahalli": "POINT(77.7003 12.9591)",
+        }
+        location = zone_coords.get(event.zone, "POINT(77.5946 12.9716)")
+
+    db_event = TrafficEvent(
+        **{k: v for k, v in event.model_dump().items() if k != "location"},
+        location=location,
+        predicted_severity=predicted_severity,
+        predicted_resolution_time_mins=predicted_resolution_time_mins,
+    )
     db.add(db_event)
     db.commit()
     db.refresh(db_event)

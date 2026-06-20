@@ -8,7 +8,7 @@ const baseURL = API_URL.endsWith('/') ? API_URL : `${API_URL}/`;
 
 export const api = axios.create({
   baseURL: baseURL,
-  timeout: 5000,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -25,7 +25,8 @@ export const createEvent = async (eventData: any) => {
 };
 
 export const simulateImpact = async (eventData: any) => {
-  const response = await api.post("simulate", eventData);
+  // AI orchestrator calls OpenAI so needs a longer timeout
+  const response = await api.post("simulate", eventData, { timeout: 60000 });
   return response.data;
 };
 

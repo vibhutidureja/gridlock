@@ -1,28 +1,64 @@
 "use client";
 
-import { Bell, Search, User } from "lucide-react";
+import { Bell, Search, User, RefreshCw, Wifi } from "lucide-react";
+import { useState } from "react";
 
 export default function Navbar() {
+  const [notifications] = useState(3);
+
   return (
-    <header className="h-16 glass-card border-x-0 border-t-0 flex items-center justify-between px-6 sticky top-0 z-30">
-      <div className="flex-1">
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search events, zones..." 
-            className="w-full bg-black/20 border border-[var(--color-card-border)] rounded-full pl-10 pr-4 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
+    <header className="h-14 bg-[#2874F0] flex items-center justify-between px-4 sticky top-0 z-30 shadow-md">
+      {/* Left - Search */}
+      <div className="flex-1 max-w-sm">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" size={16} />
+          <input
+            type="text"
+            id="global-search"
+            placeholder="Search events, zones, routes..."
+            className="w-full bg-white/15 border border-white/25 rounded-sm pl-9 pr-4 py-1.5 text-sm text-white placeholder-white/60 focus:outline-none focus:bg-white/25 transition-colors font-medium"
           />
         </div>
       </div>
-      
-      <div className="flex items-center gap-4">
-        <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-[var(--color-card)]"></span>
+
+      {/* Center - Status */}
+      <div className="hidden lg:flex items-center gap-6 mx-6">
+        <div className="flex items-center gap-1.5">
+          <Wifi size={14} className="text-white/80" />
+          <span className="text-white/80 text-xs font-medium">Connected</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-[#FFB800] animate-pulse" />
+          <span className="text-white/80 text-xs font-medium">AI Engine Active</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <RefreshCw size={12} className="text-white/80" />
+          <span className="text-white/80 text-xs font-medium">Auto-refresh: 10s</span>
+        </div>
+      </div>
+
+      {/* Right - Actions */}
+      <div className="flex items-center gap-3">
+        <button
+          id="notification-btn"
+          className="relative p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-sm transition-colors"
+          title="Notifications"
+        >
+          <Bell size={19} />
+          {notifications > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#FFB800] text-[#212121] text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-[#2874F0]">
+              {notifications}
+            </span>
+          )}
         </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 border border-gray-500 flex items-center justify-center">
-          <User size={16} className="text-gray-300" />
+        <div className="flex items-center gap-2 border-l border-white/20 pl-3 ml-1">
+          <div className="w-7 h-7 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center">
+            <User size={14} className="text-white" />
+          </div>
+          <div className="hidden lg:block">
+            <div className="text-white text-xs font-semibold leading-tight">Admin</div>
+            <div className="text-white/60 text-[10px]">Traffic Control</div>
+          </div>
         </div>
       </div>
     </header>

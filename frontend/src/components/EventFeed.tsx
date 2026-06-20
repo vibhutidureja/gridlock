@@ -1,78 +1,132 @@
-import { MapPin, Clock, AlertTriangle } from "lucide-react";
+import { MapPin, Clock, AlertTriangle, CheckCircle, Radio, ChevronRight, Filter } from "lucide-react";
+import { useState } from "react";
 
-export default function EventFeed({ events }: { events: any[] }) {
+function priorityConfig(priority: string) {
+  switch (priority?.toLowerCase()) {
+    case "critical": return { bg: "#FCE4E4", text: "#B71C1C", border: "#F5B8B8", dot: "#B71C1C", label: "Critical" };
+    case "high": return { bg: "#FDECEA", text: "#D0021B", border: "#FBCDD0", dot: "#E53935", label: "High" };
+    case "medium": return { bg: "#FEF5E7", text: "#B07800", border: "#FDEDB2", dot: "#F5A623", label: "Medium" };
+    default: return { bg: "#E8F5EB", text: "#1B5E20", border: "#B2DFBC", dot: "#26A541", label: "Low" };
+  }
+}
+
+export default function EventFeed({ events, onSelectEvent }: { events: any[]; onSelectEvent?: (e: any) => void }) {
+  const [filter, setFilter] = useState<string>("All");
+  const filters = ["All", "Critical", "High", "Medium", "Low"];
+
+  const filtered = filter === "All" ? events : events.filter(e => e.priority === filter);
+
   if (events.length === 0) {
     return (
-      <div className="glass-card p-6 rounded-xl h-[400px] flex flex-col items-center justify-center text-center">
-        <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-          <CheckCircle className="text-green-500" size={32} />
+      <div className="card flex flex-col items-center justify-center h-full text-center py-10">
+        <div className="w-14 h-14 rounded-full bg-[#E8F5EB] flex items-center justify-center mb-3">
+          <CheckCircle className="text-[#26A541]" size={28} />
         </div>
-        <h3 className="text-white font-medium text-lg">Network Clear</h3>
-        <p className="text-gray-400 text-sm mt-2">No active traffic events recorded in the system.</p>
+        <h3 className="font-semibold text-[#212121]">Network Clear</h3>
+        <p className="text-[#717171] text-sm mt-1">No active traffic events recorded.</p>
       </div>
     );
   }
 
   return (
-    <div className="glass-card rounded-xl h-[400px] flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-[var(--color-card-border)] flex items-center justify-between">
-        <h3 className="text-white font-medium">Live Event Feed</h3>
-        <span className="text-xs bg-[var(--color-primary)] text-white px-2 py-1 rounded-full font-medium">
-          {events.length} Active
-        </span>
+    <div className="card flex flex-col overflow-hidden h-full">
+      {/* Header */}
+      <div className="section-header justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Radio size={16} className="text-[#E53935]" />
+          <h3 className="font-semibold text-[#212121] text-sm">Live Event Feed</h3>
+          <span className="text-[10px] bg-[#2874F0] text-white px-2 py-0.5 rounded-full font-semibold ml-1">
+            {events.length} Active
+          </span>
+        </div>
+        <Filter size={15} className="text-[#717171]" />
       </div>
-      
-      <div className="flex-1 overflow-auto p-2 space-y-2 custom-scrollbar">
-        {events.map((event) => (
-          <div key={event.id} className="p-3 rounded-lg bg-black/20 hover:bg-black/40 border border-transparent hover:border-[var(--color-card-border)] transition-all cursor-pointer group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                {event.priority === "High" ? (
-                  <AlertTriangle size={16} className="text-red-400" />
-                ) : (
-                  <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                )}
-                <span className="font-medium text-gray-200 group-hover:text-white transition-colors">{event.event_type}</span>
-              </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-800 text-gray-300">
-                Sev: {event.predicted_severity?.toFixed(1) || "N/A"}
-              </span>
-            </div>
-            
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <MapPin size={12} />
-                <span>{event.zone} Zone</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Clock size={12} />
-                <span>ETA: {event.predicted_resolution_time_mins} mins</span>
-              </div>
-            </div>
-          </div>
+
+      {/* Filter pills */}
+      <div className="flex gap-1.5 px-3 py-2 border-b border-[#E0E3E8] overflow-x-auto shrink-0">
+        {filters.map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all ${
+              filter === f
+                ? "bg-[#2874F0] text-white border-[#2874F0]"
+                : "bg-white text-[#717171] border-[#E0E3E8] hover:border-[#2874F0] hover:text-[#2874F0]"
+            }`}
+          >
+            {f}
+          </button>
         ))}
       </div>
-    </div>
-  );
-}
 
-// Simple fallback icon for empty state
-function CheckCircle(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
+      {/* Events list */}
+      <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1.5">
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-20 text-sm text-[#9CA3AF]">No events matching filter</div>
+        ) : filtered.map((event) => {
+          const p = priorityConfig(event.priority);
+          const isCritical = event.priority === "Critical";
+          return (
+            <div
+              key={event.id}
+              onClick={() => onSelectEvent?.(event)}
+              className="p-3 rounded-md cursor-pointer transition-all duration-150 hover:shadow-sm border group"
+              style={{
+                backgroundColor: filter === "All" ? "white" : p.bg + "40",
+                borderColor: "#E0E3E8",
+                borderLeft: `4px solid ${p.dot}`,
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {isCritical ? (
+                    <AlertTriangle size={15} className="text-[#B71C1C] shrink-0" />
+                  ) : (
+                    <div className="w-2 h-2 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: p.dot }} />
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-[#212121] truncate">{event.event_type}</div>
+                    <div className="text-[11px] text-[#717171] truncate">{event.zone} Zone</div>
+                  </div>
+                </div>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                    style={{ background: p.bg, color: p.text, borderColor: p.border }}
+                  >
+                    {p.label}
+                  </span>
+                  <span className="text-[10px] font-semibold text-[#717171]">
+                    Sev {event.predicted_severity?.toFixed(1)}/10
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center gap-4">
+                <div className="flex items-center gap-1 text-[11px] text-[#717171]">
+                  <Clock size={11} />
+                  <span>ETA: {event.predicted_resolution_time_mins} min</span>
+                </div>
+                {event.road_closure && (
+                  <span className="text-[10px] bg-[#FDECEA] text-[#E53935] px-1.5 py-0.5 rounded font-semibold border border-[#FBCDD0]">
+                    Road Closed
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-1.5 flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[11px] text-[#9CA3AF]">
+                  <MapPin size={10} />
+                  <span className="font-mono truncate max-w-[140px]">
+                    {event.location?.replace("POINT(", "").replace(")", "") || "N/A"}
+                  </span>
+                </div>
+                <ChevronRight size={13} className="text-[#C2C8D4] group-hover:text-[#2874F0] transition-colors" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

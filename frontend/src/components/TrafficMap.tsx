@@ -3,17 +3,17 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
-// Dynamically import the map component with SSR disabled since Leaflet relies on window
 const TrafficMapInner = dynamic(() => import("./TrafficMapInner"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-black/20 rounded-xl border border-[var(--color-card-border)] animate-pulse">
-      <span className="text-gray-400">Loading Map...</span>
+    <div className="w-full h-full flex flex-col items-center justify-center bg-[#F8F9FB] rounded-lg border border-[#E0E3E8] animate-pulse gap-3">
+      <div className="w-10 h-10 rounded-full border-4 border-[#2874F0] border-t-transparent animate-spin" />
+      <span className="text-[#717171] text-sm font-medium">Loading Traffic Map...</span>
     </div>
   ),
 });
 
-export default function TrafficMap({ events }: { events: any[] }) {
+export default function TrafficMap({ events, selectedEventId }: { events: any[]; selectedEventId?: string }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -22,5 +22,5 @@ export default function TrafficMap({ events }: { events: any[] }) {
 
   if (!mounted) return null;
 
-  return <TrafficMapInner events={events} />;
+  return <TrafficMapInner events={events} selectedEventId={selectedEventId} />;
 }

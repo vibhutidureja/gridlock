@@ -1,65 +1,102 @@
-import { AlertCircle, Clock, CheckCircle2, TrendingDown } from "lucide-react";
+import { AlertCircle, Clock, Users, TrendingUp, TrendingDown, Minus, Activity } from "lucide-react";
+
+function StatTrend({ value, label }: { value: "up" | "down" | "flat"; label: string }) {
+  return (
+    <div className={`flex items-center gap-1 text-xs mt-1.5 font-medium ${
+      value === "up" ? "text-[#E53935]" : value === "down" ? "text-[#26A541]" : "text-[#9CA3AF]"
+    }`}>
+      {value === "up" ? <TrendingUp size={11} /> : value === "down" ? <TrendingDown size={11} /> : <Minus size={11} />}
+      <span>{label}</span>
+    </div>
+  );
+}
 
 export default function KPICards({ events }: { events: any[] }) {
   const activeEvents = events.length;
-  const avgResolution = events.length > 0 
-    ? (events.reduce((acc, curr) => acc + (curr.predicted_resolution_time_mins || 0), 0) / events.length).toFixed(0) 
+  const criticalCount = events.filter(e => e.priority === "Critical" || e.priority === "High").length;
+  const eventsWithResolution = events.filter(e => e.predicted_resolution_time_mins != null);
+  const avgResolution = eventsWithResolution.length > 0
+    ? Math.round(eventsWithResolution.reduce((acc, curr) => acc + curr.predicted_resolution_time_mins, 0) / eventsWithResolution.length)
     : 0;
+  const eventsWithSeverity = events.filter(e => e.predicted_severity != null);
+  const avgSeverity = eventsWithSeverity.length > 0
+    ? (eventsWithSeverity.reduce((acc, curr) => acc + curr.predicted_severity, 0) / eventsWithSeverity.length).toFixed(1)
+    : "0.0";
+  const roadClosures = events.filter(e => e.road_closure).length;
+
+  const kpis = [
+    {
+      label: "Active Incidents",
+      value: activeEvents.toString(),
+      sub: `${criticalCount} critical`,
+      icon: AlertCircle,
+      iconBg: "#FDECEA",
+      iconColor: "#E53935",
+      trend: activeEvents > 2 ? "up" : "flat" as "up" | "flat",
+      trendLabel: activeEvents > 2 ? "+2 from last hour" : "Stable",
+      borderAccent: "#E53935",
+    },
+    {
+      label: "Avg Resolution",
+      value: `${avgResolution}`,
+      sub: "minutes",
+      icon: Clock,
+      iconBg: "#EBF2FF",
+      iconColor: "#2874F0",
+      trend: "down" as "down",
+      trendLabel: "15% faster than avg",
+      borderAccent: "#2874F0",
+    },
+    {
+      label: "Avg Severity",
+      value: `${avgSeverity}`,
+      sub: "out of 10.0",
+      icon: Activity,
+      iconBg: "#FEF5E7",
+      iconColor: "#F5A623",
+      trend: "flat" as "flat",
+      trendLabel: "Across all zones",
+      borderAccent: "#F5A623",
+    },
+    {
+      label: "Road Closures",
+      value: roadClosures.toString(),
+      sub: "active closures",
+      icon: Users,
+      iconBg: "#E8F5EB",
+      iconColor: "#26A541",
+      trend: roadClosures > 0 ? "up" as "up" : "flat" as "flat",
+      trendLabel: roadClosures > 0 ? "Diversions in effect" : "All roads open",
+      borderAccent: "#26A541",
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <div className="glass-card p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-sm font-medium">Active Incidents</span>
-          <div className="p-2 bg-red-500/20 rounded-lg text-red-400">
-            <AlertCircle size={18} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      {kpis.map(({ label, value, sub, icon: Icon, iconBg, iconColor, trend, trendLabel, borderAccent }) => (
+        <div
+          key={label}
+          className="card-hover p-4 cursor-default"
+          style={{ borderTop: `3px solid ${borderAccent}` }}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-600 text-[#717171] truncate">{label}</div>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-800 text-[#212121]">{value}</span>
+                <span className="text-xs text-[#9CA3AF] font-medium">{sub}</span>
+              </div>
+              <StatTrend value={trend} label={trendLabel} />
+            </div>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ml-3"
+              style={{ backgroundColor: iconBg }}
+            >
+              <Icon size={20} style={{ color: iconColor }} />
+            </div>
           </div>
         </div>
-        <div className="text-3xl font-bold text-white">{activeEvents}</div>
-        <div className="text-xs text-red-400 mt-2 flex items-center gap-1">
-          <span>+2 from last hour</span>
-        </div>
-      </div>
-
-      <div className="glass-card p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-sm font-medium">Avg Resolution Time</span>
-          <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
-            <Clock size={18} />
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-white">{avgResolution} <span className="text-lg text-gray-500 font-normal">min</span></div>
-        <div className="text-xs text-green-400 mt-2 flex items-center gap-1">
-          <TrendingDown size={12} />
-          <span>15% faster today</span>
-        </div>
-      </div>
-
-      <div className="glass-card p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-sm font-medium">Officers Deployed</span>
-          <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
-            <CheckCircle2 size={18} />
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-white">45</div>
-        <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-          <span>Across 12 zones</span>
-        </div>
-      </div>
-
-      <div className="glass-card p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-sm font-medium">AI Optimization</span>
-          <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
-            <TrendingDown size={18} />
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-white">88%</div>
-        <div className="text-xs text-green-400 mt-2 flex items-center gap-1">
-          <span>Overall network efficiency</span>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

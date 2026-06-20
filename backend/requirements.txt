@@ -35,3 +35,5 @@ pandas>=2.0.0
 gymnasium>=0.29.0
 stable-baselines3[extra]>=2.1.0
 sb3-contrib>=2.1.0
+opencv-python==4.9.0.80
+numpy<2.0.0

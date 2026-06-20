@@ -1,40 +1,103 @@
 "use client";
 
-import { LayoutDashboard, Map, Settings, History, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Map, History, Settings, AlertTriangle, Activity, ChevronRight, BarChart2 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const navItems = [
+  { icon: LayoutDashboard, label: "Command Center", href: "/", badge: null },
+  { icon: Map, label: "Live Map", href: "/map", badge: "LIVE" },
+  { icon: AlertTriangle, label: "Active Events", href: "/events", badge: null },
+  { icon: History, label: "Interventions", href: "/interventions", badge: null },
+  { icon: BarChart2, label: "Analytics", href: "/analytics", badge: null },
+  { icon: Activity, label: "AI Engine", href: "/ai", badge: "NEW" },
+];
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   return (
-    <aside className="w-64 glass-card border-l-0 border-t-0 border-b-0 hidden md:flex flex-col h-full sticky top-0 z-40">
-      <div className="h-16 flex items-center px-6 border-b border-[var(--color-card-border)]">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center">
-            <AlertTriangle size={18} className="text-white" />
+    <aside className="w-[240px] bg-white border-r border-[#E0E3E8] hidden md:flex flex-col h-full sticky top-0 z-40 shadow-sm">
+      {/* Logo */}
+      <div className="h-14 flex items-center px-4 bg-[#2874F0]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <AlertTriangle size={16} className="text-white" />
           </div>
-          <span className="font-bold text-lg tracking-wide text-white">UrbanFlow Nexus</span>
+          <div>
+            <div className="font-bold text-white text-sm leading-tight tracking-wide">UrbanFlow Nexus</div>
+            <div className="text-white/70 text-[10px] font-medium tracking-widest uppercase">Command Center</div>
+          </div>
         </div>
       </div>
-      
-      <nav className="flex-1 py-6 px-4 space-y-2">
-        <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--color-primary-hover)] bg-opacity-20 text-blue-400 font-medium transition-colors">
-          <LayoutDashboard size={20} />
-          Command Center
-        </Link>
-        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <Map className="w-5 h-5" />
-          <span>Live Map</span>
-        </Link>
-        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <History className="w-5 h-5" />
-          <span>Interventions</span>
-        </Link>
+
+      {/* Navigation */}
+      <nav className="flex-1 py-3 overflow-auto custom-scrollbar">
+        <div className="px-3 mb-2">
+          <span className="text-[10px] font-700 text-[#9CA3AF] uppercase tracking-widest px-2">Main Menu</span>
+        </div>
+        <ul className="space-y-0.5 px-2">
+          {navItems.map(({ icon: Icon, label, href, badge }) => {
+            const isActive = pathname === href;
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-150 group relative ${
+                    isActive
+                      ? "bg-[#EBF2FF] text-[#2874F0] font-semibold border-l-3 border-[#2874F0]"
+                      : "text-[#444] hover:bg-[#F8F9FB] hover:text-[#2874F0] font-medium"
+                  }`}
+                  style={isActive ? { borderLeft: "3px solid #2874F0", paddingLeft: "10px" } : {}}
+                >
+                  <Icon size={18} className={isActive ? "text-[#2874F0]" : "text-[#717171] group-hover:text-[#2874F0]"} />
+                  <span className="flex-1">{label}</span>
+                  {badge && (
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      badge === "LIVE" ? "bg-[#E53935] text-white animate-pulse" :
+                      badge === "NEW" ? "bg-[#FFB800] text-[#212121]" : ""
+                    }`}>
+                      {badge}
+                    </span>
+                  )}
+                  {isActive && <ChevronRight size={14} className="text-[#2874F0] ml-auto" />}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="px-3 mt-6 mb-2">
+          <span className="text-[10px] font-700 text-[#9CA3AF] uppercase tracking-widest px-2">System</span>
+        </div>
+        <ul className="space-y-0.5 px-2">
+          <li>
+            <Link
+              href="/settings"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-[#444] hover:bg-[#F8F9FB] hover:text-[#2874F0] font-medium transition-all duration-150 group"
+            >
+              <Settings size={18} className="text-[#717171] group-hover:text-[#2874F0]" />
+              <span>Settings</span>
+            </Link>
+          </li>
+        </ul>
       </nav>
-      
-      <div className="p-4 border-t border-[var(--color-card-border)]">
-        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <Settings className="w-5 h-5" />
-          <span>Settings</span>
-        </Link>
+
+      {/* System Status */}
+      <div className="p-3 border-t border-[#E0E3E8] bg-[#F8F9FB]">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <div className="w-2 h-2 rounded-full bg-[#26A541] animate-pulse" />
+          <span className="text-xs text-[#717171] font-medium">All systems operational</span>
+        </div>
+        <div className="mt-2 px-2">
+          <div className="text-[10px] text-[#9CA3AF]">Backend API</div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <div className="h-1.5 flex-1 bg-[#E0E3E8] rounded-full overflow-hidden">
+              <div className="h-full w-[82%] bg-[#26A541] rounded-full" />
+            </div>
+            <span className="text-[10px] text-[#26A541] font-medium">82ms</span>
+          </div>
+        </div>
       </div>
     </aside>
   );
