@@ -9,7 +9,9 @@ from app.ml_engine import ml_engine
 )
 def test_ml_prediction_fallback_or_robustness(event_type, priority, zone, road_closure):
     # This property-based test ensures our ml_engine never crashes on unknown categories
-    sev, time = ml_engine.predict(event_type, priority, zone, road_closure)
+    predictions = ml_engine.predict(event_type, priority, zone, road_closure)
+    sev = predictions["predicted_severity"]
+    time = predictions["predicted_resolution_time_mins"]
     
     assert isinstance(sev, float)
     assert 1.0 <= sev <= 10.0

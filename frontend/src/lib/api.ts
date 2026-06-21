@@ -34,3 +34,12 @@ export const predictImpact = async (eventData: any) => {
   const response = await api.post("predict-impact/", eventData);
   return response.data;
 };
+
+export const resolveEvent = async (eventId: string, data: {
+  resolution_description: string;
+  actual_resolution_time_mins: number;
+  ai_accurate: boolean;
+}) => {
+  const response = await api.post(`events/${eventId}/resolve`, data);
+  return response.data;
+};

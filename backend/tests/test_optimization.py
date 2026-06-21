@@ -7,7 +7,7 @@ from app.optimization import optimizer
     delta_impact=st.floats(min_value=0.0, max_value=100.0)
 )
 def test_optimization_constraints(available_officers, available_barricades, delta_impact):
-    alloc, ties, strat = optimizer.optimize_ties(available_officers, available_barricades, delta_impact)
+    alloc, ties, strat, _ = optimizer.optimize_ties(available_officers, available_barricades, delta_impact)
     
     assert isinstance(ties, float)
     assert ties >= 0.0
@@ -16,7 +16,7 @@ def test_optimization_constraints(available_officers, available_barricades, delt
     assert alloc["barricades"] <= available_barricades
     
 def test_zero_resources():
-    alloc, ties, strat = optimizer.optimize_ties(0, 0, 50.0)
+    alloc, ties, strat, _ = optimizer.optimize_ties(0, 0, 50.0)
     assert ties == 0.0
     assert strat == "Do Nothing"
     assert alloc["officers"] == 0

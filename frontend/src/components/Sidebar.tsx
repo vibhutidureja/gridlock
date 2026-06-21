@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Map, History, Settings, AlertTriangle, Activity, ChevronRight, BarChart2, Bell } from "lucide-react";
+import { LayoutDashboard, Map, History, AlertTriangle, Activity, ChevronRight, BarChart2, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -76,20 +76,6 @@ export default function Sidebar() {
           })}
         </ul>
 
-        <div className="px-3 mt-6 mb-2">
-          <span className="text-[10px] font-700 text-[#9CA3AF] uppercase tracking-widest px-2">System</span>
-        </div>
-        <ul className="space-y-0.5 px-2">
-          <li>
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-[#444] hover:bg-[#F8F9FB] hover:text-[#2874F0] font-medium transition-all duration-150 group"
-            >
-              <Settings size={18} className="text-[#717171] group-hover:text-[#2874F0]" />
-              <span>Settings</span>
-            </Link>
-          </li>
-        </ul>
       </nav>
 
       {/* Notifications Footer */}

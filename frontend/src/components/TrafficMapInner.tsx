@@ -100,6 +100,16 @@ function isRouteDifferent(primary: [number, number][], alt: [number, number][]) 
   return false;
 }
 
+// Fix default Leaflet icon URLs to resolve from CDN to prevent 404s
+if (typeof window !== "undefined") {
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  });
+}
+
 // Custom SVG markers
 function createPriorityIcon(priority: string, eventType: string, isSelected: boolean) {
   const colorMap: Record<string, string> = {
@@ -140,6 +150,28 @@ function createPriorityIcon(priority: string, eventType: string, isSelected: boo
     html: `<div style="position:relative; z-index: ${isSelected ? 1000 : 1}; opacity: ${isSelected ? 1 : 0.85}; transition: all 0.3s ease;">
       ${svgStr}
     </div>`,
+    className: "",
+    iconSize: [width, height],
+    iconAnchor: [width/2, height],
+    popupAnchor: [0, -height],
+  });
+}
+
+function createNewPinIcon() {
+  const width = 36;
+  const height = 44;
+  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 36 44">
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
+    </filter>
+    <path d="M18 2 C9 2 2 9 2 18 C2 28 18 42 18 42 C18 42 34 28 34 18 C34 9 27 2 18 2 Z"
+      fill="#2874F0" filter="url(#shadow)"/>
+    <circle cx="18" cy="18" r="8" fill="white"/>
+    <circle cx="18" cy="18" r="4" fill="#2874F0"/>
+  </svg>`;
+
+  return L.divIcon({
+    html: svgStr,
     className: "",
     iconSize: [width, height],
     iconAnchor: [width/2, height],
@@ -205,7 +237,7 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
 
       for (const event of events) {
         const [lat, lon] = parseLocation(event.location);
-        const cacheKey = `${event.id}_${lat}_${lon}`;
+        const cacheKey = `${event.id}_${lat}_${lon}_v2`;
 
         if (routeCache.current[cacheKey]) {
           newActiveRoutes[event.id] = routeCache.current[cacheKey];
@@ -227,7 +259,7 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
         for (const dir of directions) {
           try {
             const res = await fetch(
-              `https://router.project-osrm.org/route/v1/driving/${dir.start[1]},${dir.start[0]};${lon},${lat};${dir.end[1]},${dir.end[0]}?overview=full&geometries=geojson&alternatives=true&continue_straight=true`
+              `https://router.project-osrm.org/route/v1/driving/${dir.start[1]},${dir.start[0]};${lon},${lat};${dir.end[1]},${dir.end[0]}?overview=full&geometries=geojson&alternatives=3&continue_straight=true`
             );
             if (!res.ok) continue;
             
@@ -242,19 +274,40 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
               }
 
               // Route Validation:
-              // Reject if too far (> 100m) or too long (> 2000m) or too short (< 50m)
-              if (distFromEvent < 100 && primaryLen > 50 && primaryLen < 2000) {
+              // Reject if too far (> 350m) or too long (> 3500m) or too short (< 50m)
+              if (distFromEvent < 350 && primaryLen > 50 && primaryLen < 3500) {
                 if (distFromEvent < minRouteDist) {
                   minRouteDist = distFromEvent;
                   bestRoute = primaryCoords;
                   
                   if (data.routes.length > 1) {
                     const altCoords = data.routes[1].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
-                    if (isRouteDifferent(primaryCoords, altCoords)) {
-                      bestAlt = altCoords;
-                    } else {
-                      bestAlt = null;
-                    }
+                    bestAlt = altCoords;
+                  } else if ((event.road_closure || event.priority === "Critical" || event.priority === "High") && primaryCoords.length >= 2) {
+                    // Route an alternative through OSRM with an offset waypoint to get a real road-following detour
+                    try {
+                      const start = primaryCoords[0];
+                      const end = primaryCoords[primaryCoords.length - 1];
+                      const dx = end[0] - start[0];
+                      const dy = end[1] - start[1];
+                      const pxN = -dy;
+                      const pyN = dx;
+                      const segLen = Math.sqrt(pxN*pxN + pyN*pyN);
+                      if (segLen > 0) {
+                        const offsetDeg = 0.004; // ~400m perpendicular offset
+                        const wpLat = lat + (pxN/segLen) * offsetDeg;
+                        const wpLon = lon + (pyN/segLen) * offsetDeg;
+                        const altRes = await fetch(
+                          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${wpLon},${wpLat};${end[1]},${end[0]}?overview=full&geometries=geojson`
+                        );
+                        if (altRes.ok) {
+                          const altData = await altRes.json();
+                          if (altData.routes && altData.routes.length > 0) {
+                            bestAlt = altData.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+                          }
+                        }
+                      }
+                    } catch { /* fallback: no alt route */ }
                   } else {
                     bestAlt = null;
                   }
@@ -312,10 +365,10 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
         <MapClickHandler onMapClick={onMapClick} />
 
         {newPinLocation && (
-          <Marker position={newPinLocation}>
+          <Marker position={newPinLocation} icon={createNewPinIcon()}>
             <Popup>
               <div className="text-sm font-bold text-[#2874F0]">New Event Location</div>
-              <div className="text-xs text-[#717171]">Click "Log Event" to proceed</div>
+              <div className="text-xs text-[#717171]">Click &quot;Log Event&quot; to proceed</div>
             </Popup>
           </Marker>
         )}
@@ -347,23 +400,81 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
                 />
               ))}
 
-              {/* Road Closure Barrier Marker (placed EXACTLY at event location) */}
-              {event.road_closure && (
-                <Marker 
-                  position={[lat, lon]} 
-                  icon={createBlockageIcon(isSelected)}
-                >
-                  <Popup maxWidth={220}>
-                    <div className="font-sans min-w-[180px]">
-                      <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
-                      <div className="text-[11px] text-[#444] leading-relaxed">
-                        <strong>{event.event_type}</strong> in {event.zone} zone has caused a major blockage. 
-                        <span className="text-[#2874F0] block mt-1 font-semibold">↳ Traffic is being diverted to Alternative Routes.</span>
+              {/* Impact Range Circle */}
+              <Circle
+                center={[lat, lon]}
+                radius={
+                  event.priority === "Critical" ? 300 + sev * 15 :
+                  event.priority === "High" ? 200 + sev * 10 :
+                  event.priority === "Medium" ? 100 + sev * 10 :
+                  50 + sev * 5
+                }
+                pathOptions={{
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.2,
+                  weight: 2,
+                  dashArray: "5 5",
+                }}
+              />
+
+              {/* Road Closure Barrier Markers - placed along the entire closed road */}
+              {event.road_closure && (() => {
+                const primaryRoute = routes.find(r => !r.isAlternative);
+                if (!primaryRoute || primaryRoute.coords.length < 2) {
+                  // Fallback: single marker near event
+                  return (
+                    <Marker position={[lat, lon]} icon={createBlockageIcon(isSelected)}>
+                      <Popup maxWidth={220}>
+                        <div className="font-sans min-w-[180px]">
+                          <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
+                          <div className="text-[11px] text-[#444]"><strong>{event.event_type}</strong> in {event.zone} — Road Closure Active</div>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                }
+                // Place markers every ~200m along the route
+                const markerPositions: [number, number][] = [];
+                let accumulated = 0;
+                const spacing = 200; // meters
+                for (let i = 0; i < primaryRoute.coords.length - 1; i++) {
+                  const p1 = primaryRoute.coords[i];
+                  const p2 = primaryRoute.coords[i + 1];
+                  const segDist = getDistanceFromLatLonInM(p1[0], p1[1], p2[0], p2[1]);
+                  accumulated += segDist;
+                  if (accumulated >= spacing) {
+                    // Skip if too close to the main event marker
+                    const distFromEvent = getDistanceFromLatLonInM(lat, lon, p2[0], p2[1]);
+                    if (distFromEvent > 60) {
+                      markerPositions.push(p2);
+                    }
+                    accumulated = 0;
+                  }
+                }
+                // Always add start and end of route if far enough from event
+                const startPt = primaryRoute.coords[0];
+                const endPt = primaryRoute.coords[primaryRoute.coords.length - 1];
+                if (getDistanceFromLatLonInM(lat, lon, startPt[0], startPt[1]) > 60) {
+                  markerPositions.unshift(startPt);
+                }
+                if (getDistanceFromLatLonInM(lat, lon, endPt[0], endPt[1]) > 60) {
+                  markerPositions.push(endPt);
+                }
+                return markerPositions.map((pos, mi) => (
+                  <Marker key={`block-${event.id}-${mi}`} position={pos} icon={createBlockageIcon(isSelected)}>
+                    <Popup maxWidth={220}>
+                      <div className="font-sans min-w-[180px]">
+                        <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
+                        <div className="text-[11px] text-[#444] leading-relaxed">
+                          <strong>{event.event_type}</strong> in {event.zone} zone has caused a major blockage. 
+                          <span className="text-[#2874F0] block mt-1 font-semibold">↳ Traffic is being diverted to Alternative Routes.</span>
+                        </div>
                       </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
+                    </Popup>
+                  </Marker>
+                ));
+              })()}
 
               {/* Main Event Marker */}
               <Marker 
@@ -428,12 +539,12 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
 
       {/* Map legend */}
       <div className="absolute bottom-8 left-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg border border-[#E0E3E8] shadow-md p-3 text-[11px] font-sans">
-        <div className="font-bold text-[#212121] mb-2 uppercase tracking-wide text-[10px]">Severity</div>
+        <div className="font-bold text-[#212121] mb-2 text-[12px]">Legend</div>
         {[
-          { color: "#B71C1C", label: "Critical" },
-          { color: "#E53935", label: "High" },
-          { color: "#F5A623", label: "Medium" },
-          { color: "#26A541", label: "Low" },
+          { color: "#B71C1C", label: "Critical Severity" },
+          { color: "#E53935", label: "High Severity" },
+          { color: "#F5A623", label: "Medium Severity" },
+          { color: "#26A541", label: "Low Severity" },
         ].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-2 mb-1.5">
             <div className="w-3 h-3 rounded-full shadow-sm" style={{ background: color }} />
@@ -441,20 +552,16 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
           </div>
         ))}
         
-        <div className="mt-2.5 pt-2.5 border-t border-[#E0E3E8]">
-          <div className="font-bold text-[#212121] mb-2 uppercase tracking-wide text-[10px]">Impact Visuals</div>
-          
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-3 h-3 bg-[#D0021B] rounded-[3px] shadow-sm flex items-center justify-center">
-              <span className="text-white text-[7px] font-bold">X</span>
-            </div>
-            <span className="text-[#444] font-medium">Road Closure</span>
+        <div className="flex items-center gap-2 mb-1.5 mt-2">
+          <div className="w-3 h-3 bg-[#D0021B] rounded-[3px] shadow-sm flex items-center justify-center">
+            <span className="text-white text-[7px] font-bold">X</span>
           </div>
-          
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-3 h-0.5 bg-[#2874F0] opacity-80" style={{ borderTop: "2px dashed #2874F0" }} />
-            <span className="text-[#444] font-medium">Diversion Route</span>
-          </div>
+          <span className="text-[#444] font-medium">Road Blockage</span>
+        </div>
+        
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="w-3 h-0.5 bg-[#2874F0] opacity-80" style={{ borderTop: "2px dashed #2874F0" }} />
+          <span className="text-[#444] font-medium">Alternative Route</span>
         </div>
       </div>
     </div>

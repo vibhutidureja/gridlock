@@ -241,7 +241,7 @@ export default function Home() {
 
             {activeTab === "simulate" && (
               <div className="h-full overflow-auto">
-                <SimulationPanel events={events} />
+                <SimulationPanel events={events} onResolve={() => fetchEvents(true)} />
               </div>
             )}
           </div>

@@ -32,7 +32,7 @@ export default function AIPage() {
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 min-h-0">
         {/* Simulation Panel */}
         <div style={{ minHeight: "600px" }}>
-          <SimulationPanel events={events} onResult={setSimulationResult} />
+          <SimulationPanel events={events} onResult={setSimulationResult} onResolve={() => fetchEvents()} />
         </div>
 
         {/* Info Panel or Result Panel */}

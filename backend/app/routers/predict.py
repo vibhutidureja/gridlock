@@ -16,8 +16,8 @@ class PredictResponse(BaseModel):
 
 @router.post("/", response_model=PredictResponse)
 def predict_impact(request: PredictRequest):
-    sev, time = ml_engine.predict(request.event_type, request.priority, request.zone, request.road_closure)
+    predictions = ml_engine.predict(request.event_type, request.priority, request.zone, request.road_closure)
     return PredictResponse(
-        predicted_severity=sev,
-        predicted_resolution_time_mins=time
+        predicted_severity=predictions["predicted_severity"],
+        predicted_resolution_time_mins=predictions["predicted_resolution_time_mins"]
     )

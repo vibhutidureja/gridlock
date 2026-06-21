@@ -40,7 +40,7 @@ export default function EventFeed({ events, onSelectEvent }: { events: any[]; on
           <Radio size={16} className="text-[#E53935]" />
           <h3 className="font-semibold text-[#212121] text-sm">Live Event Feed</h3>
           <span className="text-[10px] bg-[#2874F0] text-white px-2 py-0.5 rounded-full font-semibold ml-1">
-            {events.length} Active
+            {events.filter(e => e.status !== "Resolved").length} Active
           </span>
         </div>
         <Filter size={15} className="text-[#717171]" />

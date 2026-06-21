@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { simulateImpact } from "@/lib/api";
+import { simulateImpact, resolveEvent } from "@/lib/api";
 import {
   Cpu, Play, Bot, Loader2, ShieldCheck, AlertTriangle, Clock,
   Users, Target, TrendingUp, BarChart2, ChevronDown, ChevronUp, Info,
-  MapPin, CheckCircle2, ClipboardList, AlertCircle, Sparkles, HelpCircle, Shield, Award
+  MapPin, CheckCircle2, ClipboardList, AlertCircle, Sparkles, HelpCircle, Shield, Award, Brain
 } from "lucide-react";
 
 function ResultBox({ label, value, sub, color, icon: Icon }: {
@@ -422,7 +422,7 @@ export function AIBrief({ brief }: { brief: string }) {
   );
 }
 
-export default function SimulationPanel({ events, onResult }: { events: any[], onResult?: (result: any) => void }) {
+export default function SimulationPanel({ events, onResult, onResolve }: { events: any[], onResult?: (result: any) => void, onResolve?: () => void }) {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [officers, setOfficers] = useState(5);
   const [barricades, setBarricades] = useState(10);
@@ -678,18 +678,15 @@ export default function SimulationPanel({ events, onResult }: { events: any[], o
                       onClick={async () => {
                         setResolving(true);
                         try {
-                          await fetch(`http://localhost:8000/api/v1/events/${selectedEventId}/resolve`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              resolution_description: resolveDesc || "Resolved manually.",
-                              actual_resolution_time_mins: resolveTime,
-                              ai_accurate: aiAccurate
-                            })
+                          await resolveEvent(selectedEventId, {
+                            resolution_description: resolveDesc || "Resolved manually.",
+                            actual_resolution_time_mins: resolveTime,
+                            ai_accurate: aiAccurate
                           });
                           setShowResolveForm(false);
                           setResult(null);
                           setSelectedEventId("");
+                          if (onResolve) onResolve();
                         } catch (e) {
                           console.error("Failed to resolve", e);
                         } finally {

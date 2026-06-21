@@ -134,12 +134,7 @@ def get_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 @router.put("/{event_id}", response_model=EventResponse)
 def update_event(event_id: str, event: EventUpdate, db: Session = Depends(get_db)):
-    try:
-        uuid_obj = uuid.UUID(event_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-    db_event = db.query(TrafficEvent).filter(TrafficEvent.id == uuid_obj).first()
+    db_event = db.query(TrafficEvent).filter(TrafficEvent.id == event_id).first()
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
@@ -153,12 +148,7 @@ def update_event(event_id: str, event: EventUpdate, db: Session = Depends(get_db
 
 @router.post("/{event_id}/resolve", response_model=EventResponse)
 def resolve_event(event_id: str, resolve_data: EventResolve, db: Session = Depends(get_db)):
-    try:
-        uuid_obj = uuid.UUID(event_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-    db_event = db.query(TrafficEvent).filter(TrafficEvent.id == uuid_obj).first()
+    db_event = db.query(TrafficEvent).filter(TrafficEvent.id == event_id).first()
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
