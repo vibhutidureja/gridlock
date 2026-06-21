@@ -112,16 +112,12 @@ export default function Home() {
       {/* KPI Cards */}
       <KPICards events={events} />
 
-      {/* Traffic Charts Dashboard */}
-      <TrafficCharts events={events} />
-
-      {/* Main content area */}
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 min-h-0">
-
-        {/* Left: Map (large, 7 cols) */}
-        <div className="xl:col-span-7 flex flex-col gap-3 min-h-0">
+      {/* Main content area (Map & AI Engine) */}
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 min-h-0 mt-2">
+        {/* Left: Map (large, 8 cols) */}
+        <div className="xl:col-span-8 flex flex-col gap-3 min-h-0">
           {/* Map card */}
-          <div className="card flex flex-col overflow-hidden" style={{ minHeight: "460px", flex: 2 }}>
+          <div className="card flex flex-col overflow-hidden" style={{ minHeight: "650px", flex: 3 }}>
             <div className="section-header shrink-0">
               <Map size={15} className="text-[#2874F0]" />
               <h3 className="font-semibold text-[#212121] text-sm">Live Traffic Map — Bangalore</h3>
@@ -146,28 +142,23 @@ export default function Home() {
               />
             </div>
           </div>
-
-          {/* Event Feed below map */}
-          <div className="card flex flex-col overflow-hidden" style={{ flex: 1, minHeight: "220px" }}>
-            <EventFeed events={events} onSelectEvent={handleSelectEvent} />
-          </div>
         </div>
 
-        {/* Right panel: tabbed (5 cols) */}
-        <div className="xl:col-span-5 flex flex-col min-h-0">
+        {/* Right panel: tabbed (4 cols) */}
+        <div className="xl:col-span-4 flex flex-col min-h-0" style={{ minHeight: "650px" }}>
           {/* Tab switcher */}
           <div className="flex border-b border-[#E0E3E8] bg-white rounded-t-lg overflow-hidden shrink-0">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-all ${
                   activeTab === id
                     ? "text-[#2874F0] border-b-2 border-[#2874F0] bg-[#EBF2FF]"
                     : "text-[#717171] hover:text-[#2874F0] hover:bg-[#F8F9FB]"
                 }`}
               >
-                <Icon size={13} />
+                <Icon size={14} />
                 {label}
               </button>
             ))}
@@ -228,7 +219,7 @@ export default function Home() {
             )}
 
             {activeTab === "log" && (
-              <div className="h-full overflow-auto">
+              <div className="h-full overflow-auto p-2">
                 <EventForm 
                   initialLocation={newPinLocation} 
                   onEventCreated={() => {
@@ -246,6 +237,14 @@ export default function Home() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Traffic Charts Dashboard - Moved below map */}
+      <TrafficCharts events={events} />
+
+      {/* Event Feed - Moved below map */}
+      <div className="card flex flex-col overflow-hidden" style={{ minHeight: "350px" }}>
+        <EventFeed events={events} onSelectEvent={handleSelectEvent} />
       </div>
     </div>
   );
