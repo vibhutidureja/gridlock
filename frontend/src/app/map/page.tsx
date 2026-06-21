@@ -56,7 +56,7 @@ export default function MapPage() {
                 <div className="w-8 h-8 border-4 border-[#2874F0] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <TrafficMap events={events} selectedEventId={selectedEventId} />
+              <TrafficMap events={events} selectedEventId={selectedEventId} onEventSelect={(id) => setSelectedEventId(id)} />
             )}
           </div>
         </div>

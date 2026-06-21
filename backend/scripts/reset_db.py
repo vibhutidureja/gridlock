@@ -47,6 +47,8 @@ def reset_neo4j():
     CREATE (i1:Intervention {id: 'int-001', strategy_name: 'Deploy Officers + Upstream Diversion', impact_reduction: 45.0, resources: '4 Officers, 2 Barricades'})
     CREATE (i2:Intervention {id: 'int-002', strategy_name: 'Barricades Only', impact_reduction: 20.0, resources: '0 Officers, 4 Barricades'})
     CREATE (i3:Intervention {id: 'int-003', strategy_name: 'Signal Timing Adjustment', impact_reduction: 30.0, resources: '0 Officers, 0 Barricades'})
+    CREATE (i4:Intervention {id: 'int-004', strategy_name: 'Tow Truck + Police Escort', impact_reduction: 60.0, resources: '1 Tow Truck, 2 Officers'})
+    CREATE (i5:Intervention {id: 'int-005', strategy_name: 'Ambulance + Reroute Traffic', impact_reduction: 55.0, resources: '1 Ambulance, VMS Update'})
     
     CREATE (e1)-[:MITIGATED_BY {success_flag: true, time_saved_mins: 40}]->(i1)
     CREATE (e2)-[:MITIGATED_BY {success_flag: true, time_saved_mins: 15}]->(i2)
@@ -91,6 +93,8 @@ def seed_postgres():
     
     import uuid
     import datetime
+    import random
+    import re
     from app.models import TrafficEvent
     from sqlalchemy.orm import sessionmaker
     
@@ -105,10 +109,15 @@ def seed_postgres():
             zone = str(row['zone'])
             
             mapped_zone = "Central"
+            matched = False
             for k in ZONE_COORDS.keys():
                 if k.lower() in zone.lower():
                     mapped_zone = k
+                    matched = True
                     break
+            
+            if not matched:
+                mapped_zone = random.choice(list(ZONE_COORDS.keys()))
             
             try:
                 pred = ml_engine.predict(event_type, priority, mapped_zone, False)
@@ -118,7 +127,14 @@ def seed_postgres():
                 sev = 5.0
                 res_time = 60
                 
-            location = ZONE_COORDS.get(mapped_zone, "POINT(77.5946 12.9716)")
+            base_loc = ZONE_COORDS.get(mapped_zone, "POINT(77.5946 12.9716)")
+            m = re.match(r"POINT\(([\d\.]+) ([\d\.]+)\)", base_loc)
+            if m:
+                lon = float(m.group(1)) + random.uniform(-0.015, 0.015)
+                lat = float(m.group(2)) + random.uniform(-0.015, 0.015)
+                location = f"POINT({lon:.6f} {lat:.6f})"
+            else:
+                location = base_loc
             
             db_event = TrafficEvent(
                 id=str(uuid.uuid4()),

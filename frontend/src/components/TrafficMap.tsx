@@ -13,7 +13,7 @@ const TrafficMapInner = dynamic(() => import("./TrafficMapInner"), {
   ),
 });
 
-export default function TrafficMap({ events, selectedEventId, onMapClick, newPinLocation }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null }) {
+export default function TrafficMap({ events, selectedEventId, onMapClick, newPinLocation, onEventSelect }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null; onEventSelect?: (id: string) => void }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -22,5 +22,5 @@ export default function TrafficMap({ events, selectedEventId, onMapClick, newPin
 
   if (!mounted) return null;
 
-  return <TrafficMapInner events={events} selectedEventId={selectedEventId} onMapClick={onMapClick} newPinLocation={newPinLocation} />;
+  return <TrafficMapInner events={events} selectedEventId={selectedEventId} onMapClick={onMapClick} newPinLocation={newPinLocation} onEventSelect={onEventSelect} />;
 }

@@ -81,7 +81,7 @@ function severityToColor(sev: number): string {
   return "#F5A623";
 }
 
-export default function TrafficMapInner({ events, selectedEventId, onMapClick, newPinLocation }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null }) {
+export default function TrafficMapInner({ events, selectedEventId, onMapClick, newPinLocation, onEventSelect }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null; onEventSelect?: (id: string) => void }) {
   // MapMyIndia tile URL - uses REST API key
   const mapKey = process.env.NEXT_PUBLIC_MAPMYINDIA_API_KEY;
   const tileUrl = mapKey && mapKey.length > 10
@@ -220,7 +220,15 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
               />
 
               {/* Event marker */}
-              <Marker position={[lat, lon]} icon={icon}>
+              <Marker 
+                position={[lat, lon]} 
+                icon={icon}
+                eventHandlers={{
+                  click: () => {
+                    if (onEventSelect) onEventSelect(event.id);
+                  }
+                }}
+              >
                 <Popup maxWidth={260}>
                   <div className="font-sans min-w-[220px]">
                     <div className="flex items-center justify-between mb-2">
@@ -268,7 +276,7 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
               </Marker>
 
               {/* Road closure blockage markers on shockwave ends */}
-              {event.road_closure && shockwaves[event.id]?.map((pathObj, pIdx) => {
+              {event.road_closure && isSelected && shockwaves[event.id]?.map((pathObj, pIdx) => {
                 if (pathObj.isAlternative) return null; // Don't block alternatives
                 const path = pathObj.coords;
                 const endPoint = path[Math.floor(path.length * 0.3)]; // Much closer to the event!
@@ -289,7 +297,7 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
               })}
 
               {/* Traffic shockwave polylines */}
-              {(shockwaves[event.id] || []).map((pathObj, pIdx) => (
+              {isSelected && (shockwaves[event.id] || []).map((pathObj, pIdx) => (
                 <Polyline
                   key={`shock-${event.id}-${pIdx}`}
                   positions={pathObj.coords}

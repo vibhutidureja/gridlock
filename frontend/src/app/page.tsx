@@ -139,6 +139,10 @@ export default function Home() {
                   setNewPinLocation([lat, lon]);
                   setActiveTab("log");
                 }}
+                onEventSelect={(id) => {
+                  const evt = events.find(e => e.id === id);
+                  if (evt) handleSelectEvent(evt);
+                }}
               />
             </div>
           </div>
