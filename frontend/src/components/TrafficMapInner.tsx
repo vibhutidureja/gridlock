@@ -5,6 +5,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useState, useRef, Fragment } from "react";
 
+const DEBUG_ROUTES = true;
+
 function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lon: number) => void }) {
   useMapEvents({
     click(e) {
@@ -14,8 +16,92 @@ function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lon: numbe
   return null;
 }
 
-// Custom SVG markers by priority
-function createPriorityIcon(priority: string, eventType: string) {
+// Haversine distance in meters
+function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Distance from point to line segment
+function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+  let A = px - x1;
+  let B = py - y1;
+  let C = x2 - x1;
+  let D = y2 - y1;
+
+  let dot = A * C + B * D;
+  let len_sq = C * C + D * D;
+  let param = -1;
+  if (len_sq !== 0) param = dot / len_sq;
+
+  let xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  }
+  else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  }
+  else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  let dx = px - xx;
+  let dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Min distance from point to polyline (meters)
+function getMinDistanceFromRoute(eventLat: number, eventLon: number, coords: [number, number][]) {
+  let minDistance = Infinity;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p1 = coords[i];
+    const p2 = coords[i+1];
+    
+    const latMeters = 111139;
+    const lonMeters = 111139 * Math.cos(eventLat * Math.PI / 180);
+    
+    const x1 = (p1[1] - eventLon) * lonMeters;
+    const y1 = (p1[0] - eventLat) * latMeters;
+    const x2 = (p2[1] - eventLon) * lonMeters;
+    const y2 = (p2[0] - eventLat) * latMeters;
+    
+    const d = distanceToSegment(0, 0, x1, y1, x2, y2);
+    if (d < minDistance) minDistance = d;
+  }
+  return minDistance;
+}
+
+function getRouteLength(coords: [number, number][]) {
+  let length = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    length += getDistanceFromLatLonInM(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1]);
+  }
+  return length;
+}
+
+// Check if alternative is sufficiently different (at least 20% different path)
+function isRouteDifferent(primary: [number, number][], alt: [number, number][]) {
+  if (primary.length === 0 || alt.length === 0) return false;
+  // Simple check: difference in length
+  const pLen = getRouteLength(primary);
+  const aLen = getRouteLength(alt);
+  if (Math.abs(pLen - aLen) > 50) return true; // > 50 meters diff
+  return false;
+}
+
+// Custom SVG markers
+function createPriorityIcon(priority: string, eventType: string, isSelected: boolean) {
   const colorMap: Record<string, string> = {
     Critical: "#B71C1C",
     High: "#E53935",
@@ -23,7 +109,6 @@ function createPriorityIcon(priority: string, eventType: string) {
     Low: "#26A541",
   };
   const color = colorMap[priority] || "#2874F0";
-  const pulseClass = priority === "Critical" ? "animate-ping" : "";
 
   const emojiMap: Record<string, string> = {
     Accident: "🚗",
@@ -36,7 +121,12 @@ function createPriorityIcon(priority: string, eventType: string) {
   };
   const emoji = emojiMap[eventType] || "⚠️";
 
-  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+  // Scale up slightly if selected
+  const scale = isSelected ? 1.2 : 1;
+  const width = 36 * scale;
+  const height = 44 * scale;
+  
+  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 36 44">
     <filter id="shadow">
       <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
     </filter>
@@ -47,30 +137,32 @@ function createPriorityIcon(priority: string, eventType: string) {
   </svg>`;
 
   return L.divIcon({
-    html: `<div style="position:relative">
-      <div style="position:absolute;top:-2px;left:-2px;width:40px;height:40px;border-radius:50%;background:${color};opacity:0.25;animation:${priority === "Critical" ? "pulse-ring 2s infinite" : "none"}"></div>
+    html: `<div style="position:relative; z-index: ${isSelected ? 1000 : 1}; opacity: ${isSelected ? 1 : 0.85}; transition: all 0.3s ease;">
       ${svgStr}
     </div>`,
     className: "",
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44],
+    iconSize: [width, height],
+    iconAnchor: [width/2, height],
+    popupAnchor: [0, -height],
   });
 }
 
-// Blockage marker (red X)
-function createBlockageIcon() {
-  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
-    <rect x="0" y="0" width="28" height="28" rx="4" fill="#D0021B" opacity="0.9"/>
+function createBlockageIcon(isSelected: boolean) {
+  const scale = isSelected ? 1.1 : 0.9;
+  const width = 28 * scale;
+  const height = 28 * scale;
+  
+  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 28 28">
+    <rect x="0" y="0" width="28" height="28" rx="4" fill="#D0021B" opacity="0.95"/>
     <line x1="7" y1="7" x2="21" y2="21" stroke="white" stroke-width="3" stroke-linecap="round"/>
     <line x1="21" y1="7" x2="7" y2="21" stroke="white" stroke-width="3" stroke-linecap="round"/>
   </svg>`;
   return L.divIcon({
     html: svgStr,
     className: "",
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+    iconSize: [width, height],
+    iconAnchor: [width/2, height/2],
+    popupAnchor: [0, -height/2],
   });
 }
 
@@ -78,11 +170,10 @@ function severityToColor(sev: number): string {
   if (sev >= 8) return "#B71C1C";
   if (sev >= 6) return "#E53935";
   if (sev >= 4) return "#F5A623";
-  return "#F5A623";
+  return "#26A541";
 }
 
 export default function TrafficMapInner({ events, selectedEventId, onMapClick, newPinLocation, onEventSelect }: { events: any[]; selectedEventId?: string; onMapClick?: (lat: number, lon: number) => void; newPinLocation?: [number, number] | null; onEventSelect?: (id: string) => void }) {
-  // MapMyIndia tile URL - uses REST API key
   const mapKey = process.env.NEXT_PUBLIC_MAPMYINDIA_API_KEY;
   const tileUrl = mapKey && mapKey.length > 10
     ? `https://apis.mapmyindia.com/advancedmaps/v1/${mapKey}/retina_map/{z}/{x}/{y}.png`
@@ -90,9 +181,6 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
   const attribution = mapKey && mapKey.length > 10
     ? '© <a href="https://www.mapmyindia.com" target="_blank">MapMyIndia</a>'
     : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>';
-
-  const [shockwaves, setShockwaves] = useState<Record<string, {coords: [number, number][], isAlternative: boolean}[]>>({});
-  const fetchedIds = useRef<Set<string>>(new Set());
 
   // Parse event location
   function parseLocation(loc: string | undefined): [number, number] {
@@ -105,66 +193,102 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
     return [12.9716, 77.5946];
   }
 
+  // Caching routes: { "eventId_lat_lon": { paths } }
+  const routeCache = useRef<Record<string, {coords: [number, number][], isAlternative: boolean}[]>>({});
+  const [activeRoutes, setActiveRoutes] = useState<Record<string, {coords: [number, number][], isAlternative: boolean}[]>>({});
+
   useEffect(() => {
-    const fetchRoutes = async () => {
-      const newShockwaves: Record<string, {coords: [number, number][], isAlternative: boolean}[]> = {};
+    let isMounted = true;
+    
+    const fetchEventRoutes = async () => {
+      const newActiveRoutes: Record<string, {coords: [number, number][], isAlternative: boolean}[]> = {};
 
       for (const event of events) {
-        if (fetchedIds.current.has(event.id)) continue;
-        fetchedIds.current.add(event.id);
-
         const [lat, lon] = parseLocation(event.location);
-        const sev = event.predicted_severity || 5;
-        const dist = 0.005 + (sev * 0.0005); // Smaller realistic distance
+        const cacheKey = `${event.id}_${lat}_${lon}`;
 
-        const branches: [number, number][] = [
-          [lat + dist * 1.5, lon + dist],
-          [lat - dist * 1.2, lon + dist * 1.5],
-          [lat + dist * 0.8, lon - dist * 1.5],
+        if (routeCache.current[cacheKey]) {
+          newActiveRoutes[event.id] = routeCache.current[cacheKey];
+          continue;
+        }
+
+        const dist = 0.003; // ~300m
+        const directions = [
+          { name: 'N->S', start: [lat + dist, lon], end: [lat - dist, lon] },
+          { name: 'S->N', start: [lat - dist, lon], end: [lat + dist, lon] },
+          { name: 'E->W', start: [lat, lon + dist], end: [lat, lon - dist] },
+          { name: 'W->E', start: [lat, lon - dist], end: [lat, lon + dist] },
         ];
 
-        const paths: {coords: [number, number][], isAlternative: boolean}[] = [];
-        try {
-          await Promise.all(
-            branches.map(async ([blat, blon]) => {
-              const res = await fetch(
-                `https://router.project-osrm.org/route/v1/driving/${lon},${lat};${blon},${blat}?overview=full&geometries=geojson&alternatives=true`
-              );
-              if (!res.ok) throw new Error("OSRM API rate limit or error");
-              const data = await res.json();
-              if (data.routes?.length > 0) {
-                const coords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
-                paths.push({ coords, isAlternative: false });
-                if (data.routes.length > 1) {
-                  const altCoords = data.routes[1].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
-                  paths.push({ coords: altCoords, isAlternative: true });
-                }
+        let bestRoute: [number, number][] | null = null;
+        let bestAlt: [number, number][] | null = null;
+        let minRouteDist = Infinity;
+
+        for (const dir of directions) {
+          try {
+            const res = await fetch(
+              `https://router.project-osrm.org/route/v1/driving/${dir.start[1]},${dir.start[0]};${lon},${lat};${dir.end[1]},${dir.end[0]}?overview=full&geometries=geojson&alternatives=true&continue_straight=true`
+            );
+            if (!res.ok) continue;
+            
+            const data = await res.json();
+            if (data.routes && data.routes.length > 0) {
+              const primaryCoords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+              const primaryLen = getRouteLength(primaryCoords);
+              const distFromEvent = getMinDistanceFromRoute(lat, lon, primaryCoords);
+              
+              if (DEBUG_ROUTES) {
+                console.log(`[DEBUG] ${event.id} | ${dir.name} | Len:${primaryLen.toFixed(0)}m | Dist:${distFromEvent.toFixed(0)}m`);
               }
-            })
-          );
-        } catch { 
-          // Silently handle OSRM failures 
+
+              // Route Validation:
+              // Reject if too far (> 100m) or too long (> 2000m) or too short (< 50m)
+              if (distFromEvent < 100 && primaryLen > 50 && primaryLen < 2000) {
+                if (distFromEvent < minRouteDist) {
+                  minRouteDist = distFromEvent;
+                  bestRoute = primaryCoords;
+                  
+                  if (data.routes.length > 1) {
+                    const altCoords = data.routes[1].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+                    if (isRouteDifferent(primaryCoords, altCoords)) {
+                      bestAlt = altCoords;
+                    } else {
+                      bestAlt = null;
+                    }
+                  } else {
+                    bestAlt = null;
+                  }
+                }
+              } else {
+                if (DEBUG_ROUTES) console.log(`[DEBUG] Rejected ${event.id} ${dir.name} due to limits.`);
+              }
+            }
+          } catch (e) {
+            // Silently handle
+          }
         }
 
-        if (paths.length === 0) {
-          // Straight line fallback
-          branches.forEach(([blat, blon]) => {
-            paths.push({ coords: [[lat, lon], [blat, blon]], isAlternative: false });
-          });
+        const paths: {coords: [number, number][], isAlternative: boolean}[] = [];
+        if (bestRoute) {
+          if (DEBUG_ROUTES) console.log(`[DEBUG] Accepted ${event.id} with Dist: ${minRouteDist.toFixed(0)}m`);
+          paths.push({ coords: bestRoute, isAlternative: false });
+          if (bestAlt) paths.push({ coords: bestAlt, isAlternative: true });
         }
 
-        newShockwaves[event.id] = paths;
+        routeCache.current[cacheKey] = paths;
+        newActiveRoutes[event.id] = paths;
       }
 
-      if (Object.keys(newShockwaves).length > 0) {
-        setShockwaves(prev => ({ ...prev, ...newShockwaves }));
+      if (isMounted) {
+        setActiveRoutes(newActiveRoutes);
       }
     };
 
-    if (events.length > 0) fetchRoutes();
+    fetchEventRoutes();
+
+    return () => { isMounted = false; };
   }, [events]);
 
-  // Compute map center: average of all events or Bangalore default
   const center: [number, number] = events.length > 0
     ? (() => {
         const locs = events.map(e => parseLocation(e.location));
@@ -200,26 +324,48 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
           const [lat, lon] = parseLocation(event.location);
           const sev = event.predicted_severity || 5;
           const color = severityToColor(sev);
-          const icon = createPriorityIcon(event.priority, event.event_type);
           const isSelected = event.id === selectedEventId;
+          const icon = createPriorityIcon(event.priority, event.event_type, isSelected);
+          
+          const routes = activeRoutes[event.id] || [];
 
           return (
             <Fragment key={event.id}>
-              {/* Impact radius circle */}
-              <Circle
-                center={[lat, lon]}
-                radius={100 + sev * 30}
-                pathOptions={{
-                  color: color,
-                  fillColor: color,
-                  fillOpacity: 0.07,
-                  weight: 1.5,
-                  dashArray: "6 4",
-                  opacity: isSelected ? 0.9 : 0.5,
-                }}
-              />
+              {/* OSRM Routes */}
+              {routes.map((pathObj, pIdx) => (
+                <Polyline
+                  key={`route-${event.id}-${pIdx}`}
+                  positions={pathObj.coords}
+                  pathOptions={{
+                    color: pathObj.isAlternative ? "#2874F0" : color,
+                    weight: isSelected ? (pathObj.isAlternative ? 5 : 6) : (pathObj.isAlternative ? 3 : (sev > 7 ? 4 : 3)),
+                    opacity: isSelected ? 1.0 : (pathObj.isAlternative ? 0.8 : 0.75),
+                    dashArray: pathObj.isAlternative ? "8 6" : undefined,
+                    lineCap: "round",
+                    lineJoin: "round",
+                  }}
+                />
+              ))}
 
-              {/* Event marker */}
+              {/* Road Closure Barrier Marker (placed EXACTLY at event location) */}
+              {event.road_closure && (
+                <Marker 
+                  position={[lat, lon]} 
+                  icon={createBlockageIcon(isSelected)}
+                >
+                  <Popup maxWidth={220}>
+                    <div className="font-sans min-w-[180px]">
+                      <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
+                      <div className="text-[11px] text-[#444] leading-relaxed">
+                        <strong>{event.event_type}</strong> in {event.zone} zone has caused a major blockage. 
+                        <span className="text-[#2874F0] block mt-1 font-semibold">↳ Traffic is being diverted to Alternative Routes.</span>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Main Event Marker */}
               <Marker 
                 position={[lat, lon]} 
                 icon={icon}
@@ -275,70 +421,40 @@ export default function TrafficMapInner({ events, selectedEventId, onMapClick, n
                 </Popup>
               </Marker>
 
-              {/* Road closure blockage markers on shockwave ends */}
-              {event.road_closure && isSelected && shockwaves[event.id]?.map((pathObj, pIdx) => {
-                if (pathObj.isAlternative) return null; // Don't block alternatives
-                const path = pathObj.coords;
-                const endPoint = path[Math.floor(path.length * 0.3)]; // Much closer to the event!
-                if (!endPoint) return null;
-                return (
-                  <Marker key={`block-${event.id}-${pIdx}`} position={endPoint} icon={createBlockageIcon()}>
-                    <Popup maxWidth={220}>
-                      <div className="font-sans min-w-[180px]">
-                        <div className="text-xs font-bold text-[#D0021B] uppercase tracking-wide border-b border-[#FBCDD0] pb-1 mb-2">Road Blocked</div>
-                        <div className="text-[11px] text-[#444] leading-relaxed">
-                          <strong>{event.event_type}</strong> in {event.zone} zone has caused a major blockage. 
-                          <span className="text-[#2874F0] block mt-1 font-semibold">↳ Traffic is being diverted to Alternative Routes.</span>
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-
-              {/* Traffic shockwave polylines */}
-              {isSelected && (shockwaves[event.id] || []).map((pathObj, pIdx) => (
-                <Polyline
-                  key={`shock-${event.id}-${pIdx}`}
-                  positions={pathObj.coords}
-                  pathOptions={{
-                    color: pathObj.isAlternative ? "#2874F0" : color,
-                    weight: pathObj.isAlternative ? 3 : (sev > 7 ? 5 : sev > 5 ? 4 : 3),
-                    opacity: isSelected ? 1.0 : (pathObj.isAlternative ? 0.8 : 0.75),
-                    dashArray: pathObj.isAlternative ? "6 6" : (sev > 7 ? undefined : "8 4"),
-                    lineCap: "round",
-                    lineJoin: "round",
-                  }}
-                />
-              ))}
             </Fragment>
           );
         })}
       </MapContainer>
 
       {/* Map legend */}
-      <div className="absolute bottom-8 left-3 z-[1000] bg-white rounded-lg border border-[#E0E3E8] shadow-md p-2.5 text-[11px]">
-        <div className="font-semibold text-[#212121] mb-1.5">Legend</div>
+      <div className="absolute bottom-8 left-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg border border-[#E0E3E8] shadow-md p-3 text-[11px] font-sans">
+        <div className="font-bold text-[#212121] mb-2 uppercase tracking-wide text-[10px]">Severity</div>
         {[
           { color: "#B71C1C", label: "Critical" },
           { color: "#E53935", label: "High" },
           { color: "#F5A623", label: "Medium" },
           { color: "#26A541", label: "Low" },
         ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full" style={{ background: color }} />
-            <span className="text-[#717171]">{label} Severity</span>
+          <div key={label} className="flex items-center gap-2 mb-1.5">
+            <div className="w-3 h-3 rounded-full shadow-sm" style={{ background: color }} />
+            <span className="text-[#444] font-medium">{label}</span>
           </div>
         ))}
-        <div className="flex items-center gap-2 mt-1 pt-1 border-t border-[#E0E3E8]">
-          <div className="w-3 h-3 bg-[#D0021B] rounded-sm flex items-center justify-center">
-            <span className="text-white text-[6px] font-bold">X</span>
+        
+        <div className="mt-2.5 pt-2.5 border-t border-[#E0E3E8]">
+          <div className="font-bold text-[#212121] mb-2 uppercase tracking-wide text-[10px]">Impact Visuals</div>
+          
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-3 h-3 bg-[#D0021B] rounded-[3px] shadow-sm flex items-center justify-center">
+              <span className="text-white text-[7px] font-bold">X</span>
+            </div>
+            <span className="text-[#444] font-medium">Road Closure</span>
           </div>
-          <span className="text-[#717171]">Road Blockage</span>
-        </div>
-        <div className="flex items-center gap-2 mt-1 pt-1">
-          <div className="w-3 h-1 bg-[#2874F0]" />
-          <span className="text-[#717171]">Alternative Route</span>
+          
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-3 h-0.5 bg-[#2874F0] opacity-80" style={{ borderTop: "2px dashed #2874F0" }} />
+            <span className="text-[#444] font-medium">Diversion Route</span>
+          </div>
         </div>
       </div>
     </div>

@@ -87,7 +87,7 @@ def seed_postgres():
     df['priority'] = df['priority'].fillna("Low")
     df['zone'] = df['zone'].fillna("Unknown")
     
-    sample_df = df.sample(n=20, random_state=42)
+    sample_df = df.sample(n=8, random_state=42)
     
     engine = create_engine(DATABASE_URL)
     
@@ -126,15 +126,21 @@ def seed_postgres():
             except Exception:
                 sev = 5.0
                 res_time = 60
-                
-            base_loc = ZONE_COORDS.get(mapped_zone, "POINT(77.5946 12.9716)")
-            m = re.match(r"POINT\(([\d\.]+) ([\d\.]+)\)", base_loc)
-            if m:
-                lon = float(m.group(1)) + random.uniform(-0.015, 0.015)
-                lat = float(m.group(2)) + random.uniform(-0.015, 0.015)
-                location = f"POINT({lon:.6f} {lat:.6f})"
-            else:
-                location = base_loc
+
+            # Predefined list of known, highly valid road intersections in Bangalore
+            # (MG Road, Silk Board, Hebbal, Indiranagar, Koramangala, Majestic, E-City, Whitefield)
+            valid_road_coords = [
+                "POINT(77.606800 12.974700)",
+                "POINT(77.622500 12.917600)",
+                "POINT(77.588800 13.038200)",
+                "POINT(77.638900 12.978400)",
+                "POINT(77.625300 12.936500)",
+                "POINT(77.573600 12.976600)",
+                "POINT(77.662200 12.848800)",
+                "POINT(77.747100 12.983000)"
+            ]
+            
+            location = valid_road_coords[success_count % len(valid_road_coords)]
             
             db_event = TrafficEvent(
                 id=str(uuid.uuid4()),
