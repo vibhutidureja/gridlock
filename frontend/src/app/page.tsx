@@ -85,7 +85,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 min-h-full pb-8">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>

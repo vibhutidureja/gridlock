@@ -16,13 +16,18 @@ app = FastAPI(title="UrbanFlow Nexus", description="Traffic Intervention Intelli
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"], 
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(predict.router, prefix="/api/v1")
+
+# Initialize DB tables
+from app.database import engine, Base
+from app import models
+Base.metadata.create_all(bind=engine)
 
 class EventIngestRequest(BaseModel):
     event_type: str

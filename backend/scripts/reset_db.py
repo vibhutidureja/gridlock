@@ -10,7 +10,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.database import DATABASE_URL
 from app.models import Base
 from app.routers.events import ZONE_COORDS
-from app.ml_engine import ml_engine
+try:
+    from app.ml_engine import ml_engine
+except ImportError:
+    ml_engine = None
 
 def reset_postgres():
     print(f"Connecting to PostgreSQL database at {DATABASE_URL}...")
@@ -120,9 +123,13 @@ def seed_postgres():
                 mapped_zone = random.choice(list(ZONE_COORDS.keys()))
             
             try:
-                pred = ml_engine.predict(event_type, priority, mapped_zone, False)
-                sev = pred.get("predicted_severity", 5.0)
-                res_time = pred.get("predicted_resolution_time_mins", 60)
+                if ml_engine is not None:
+                    pred = ml_engine.predict(event_type, priority, mapped_zone, False)
+                    sev = pred.get("predicted_severity", 5.0)
+                    res_time = pred.get("predicted_resolution_time_mins", 60)
+                else:
+                    sev = 5.0
+                    res_time = 60
             except Exception:
                 sev = 5.0
                 res_time = 60
